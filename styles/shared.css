@@ -1,0 +1,193 @@
+/* Shared design tokens and base styles for ProfileFill */
+
+:root {
+  --pf-font-family: -apple-system, system-ui, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", sans-serif;
+
+  --pf-color-bg: #ffffff;
+  --pf-color-bg-subtle: #f5f5f7;
+  --pf-color-text: #1d1d1f;
+  --pf-color-text-muted: #8e8e93;
+  --pf-color-border-subtle: #e5e5ea;
+
+  --pf-color-primary: #007aff;
+  --pf-color-primary-soft: rgba(0, 122, 255, 0.1);
+  --pf-color-danger: #ff3b30;
+  --pf-color-success: #34c759;
+
+  --pf-radius-card: 12px;
+  --pf-radius-input: 10px;
+  --pf-radius-button: 22px;
+
+  --pf-shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.08);
+
+  --pf-spacing-xs: 4px;
+  --pf-spacing-sm: 8px;
+  --pf-spacing-md: 16px;
+  --pf-spacing-lg: 24px;
+  --pf-spacing-xl: 32px;
+
+  --pf-transition-fast: 200ms ease;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--pf-font-family);
+  color: var(--pf-color-text);
+  background-color: var(--pf-color-bg);
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin: 0;
+}
+
+.pf-page {
+  padding: var(--pf-spacing-lg);
+  background-color: var(--pf-color-bg);
+  color: var(--pf-color-text);
+}
+
+.pf-page-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: var(--pf-spacing-lg);
+}
+
+.pf-section-title {
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: var(--pf-spacing-sm);
+}
+
+.pf-card {
+  background-color: var(--pf-color-bg-subtle);
+  border-radius: var(--pf-radius-card);
+  padding: var(--pf-spacing-md);
+  box-shadow: var(--pf-shadow-soft);
+}
+
+.pf-input {
+  width: 100%;
+  border: none;
+  border-radius: var(--pf-radius-input);
+  padding: 10px 12px;
+  background-color: var(--pf-color-bg-subtle);
+  font-size: 14px;
+  color: var(--pf-color-text);
+  outline: none;
+  border-bottom: 2px solid transparent;
+  transition: border-bottom-color var(--pf-transition-fast), background-color var(--pf-transition-fast);
+}
+
+.pf-input::placeholder {
+  color: var(--pf-color-text-muted);
+}
+
+.pf-input:focus {
+  border-bottom-color: var(--pf-color-primary);
+  background-color: #ffffff;
+}
+
+.pf-button {
+  border: none;
+  border-radius: var(--pf-radius-button);
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--pf-transition-fast), color var(--pf-transition-fast), box-shadow var(--pf-transition-fast), transform var(--pf-transition-fast);
+}
+
+.pf-button-primary {
+  background-color: var(--pf-color-primary);
+  color: #ffffff;
+}
+
+.pf-button-primary:hover:not(:disabled) {
+  box-shadow: var(--pf-shadow-soft);
+  transform: translateY(-1px);
+}
+
+.pf-button-ghost {
+  background-color: transparent;
+  color: var(--pf-color-primary);
+}
+
+.pf-button-ghost:hover:not(:disabled) {
+  background-color: var(--pf-color-primary-soft);
+}
+
+.pf-button-danger {
+  background-color: transparent;
+  color: var(--pf-color-danger);
+}
+
+.pf-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  background-color: var(--pf-color-primary-soft);
+  color: var(--pf-color-primary);
+}
+
+.pf-text-muted {
+  font-size: 12px;
+  color: var(--pf-color-text-muted);
+}
+
+.pf-flex {
+  display: flex;
+}
+
+.pf-flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pf-gap-md {
+  gap: var(--pf-spacing-md);
+}
+
+.pf-toast {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  background-color: #ffffff;
+  color: var(--pf-color-text);
+  border-radius: 999px;
+  box-shadow: var(--pf-shadow-soft);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 9999;
+}
+
+.pf-toast-success-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--pf-color-success);
+}

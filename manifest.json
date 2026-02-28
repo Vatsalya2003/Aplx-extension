@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "ProfileFill",
+  "version": "1.0.0",
+  "description": "Create profiles from your resume and auto-fill job applications instantly.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "options_page": "options/options.html",
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "utils/fieldMapper.js",
+        "utils/formFiller.js",
+        "content/content.js"
+      ],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content/content.css",
+        "libs/pdf.worker.min.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "commands": {
+    "_execute_action": {
+      "description": "Open ProfileFill popup"
+    },
+    "toggle_widget": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F",
+        "mac": "Command+Shift+F"
+      },
+      "description": "Toggle ProfileFill floating widget"
+    },
+    "open_popup": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P",
+        "mac": "Command+Shift+P"
+      },
+      "description": "Open ProfileFill popup"
+    }
+  }
+}

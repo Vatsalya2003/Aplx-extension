@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Optional: uncomment if you don't want to commit libs (user downloads separately)
+# libs/
