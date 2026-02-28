@@ -4,6 +4,11 @@
   "version": "1.0.0",
   "description": "Create profiles from your resume and auto-fill job applications instantly.",
   "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://api.openai.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.anthropic.com/*"
+  ],
   "action": {
     "default_popup": "popup/popup.html"
   },
@@ -28,6 +33,7 @@
     {
       "resources": [
         "content/content.css",
+        "libs/pdf.min.js",
         "libs/pdf.worker.min.js"
       ],
       "matches": ["<all_urls>"]

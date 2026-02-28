@@ -7,6 +7,8 @@ import {
   importProfile,
   exportAllProfiles,
 } from '../utils/storage.js';
+import { getSettings, saveSettings as persistSettings, getDefaultSettings } from '../utils/settings.js';
+import { testApiKey } from '../utils/aiParser.js';
 
 const appEl = document.getElementById('app');
 
@@ -15,16 +17,28 @@ const VIEW = {
   EDITOR: 'editor',
 };
 
+const AI_PROVIDERS = [
+  { value: 'openai', label: 'OpenAI', defaultModel: 'gpt-4o-mini' },
+  { value: 'gemini', label: 'Google Gemini', defaultModel: 'gemini-2.5-flash' },
+  { value: 'claude', label: 'Anthropic Claude', defaultModel: 'claude-sonnet-4-20250514' },
+];
+
 let state = {
   view: VIEW.LIST,
   profiles: [],
   searchQuery: '',
   sortBy: 'recent',
   editingProfile: null,
+  settings: null,
+  settingsOpen: false,
+  settingsDirty: null,
+  testApiResult: null,
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadProfiles();
+  state.settings = await getSettings();
+  state.settingsDirty = { ...state.settings };
   const url = new URL(window.location.href);
   const mode = url.searchParams.get('mode');
   const id = url.searchParams.get('id');
@@ -45,6 +59,129 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadProfiles() {
   state.profiles = await getAllProfiles();
+}
+
+function renderSettingsCard() {
+  const s = state.settingsDirty ?? state.settings ?? getDefaultSettings();
+  const open = state.settingsOpen;
+  const provider = AI_PROVIDERS.find((p) => p.value === (s.aiProvider || 'openai')) || AI_PROVIDERS[0];
+
+  const card = document.createElement('div');
+  card.className = 'pf-card options-settings-card';
+  card.innerHTML = `
+    <div class="options-settings-header" id="settings-toggle">
+      <span class="options-settings-title">Settings</span>
+      <span class="options-settings-chevron">${open ? '▼' : '▶'}</span>
+    </div>
+    <div class="options-settings-body" id="settings-body" style="display: ${open ? 'block' : 'none'}">
+      <label class="options-settings-row options-settings-toggle-row">
+        <span>Use AI for Resume Parsing</span>
+        <input type="checkbox" id="settings-ai-enabled" class="options-settings-checkbox" ${s.aiParsingEnabled ? 'checked' : ''} />
+      </label>
+      <div class="options-settings-ai-fields" id="settings-ai-fields" style="display: ${s.aiParsingEnabled ? 'block' : 'none'}">
+        <div class="options-settings-row">
+          <label class="options-field-label">AI Provider</label>
+          <select id="settings-ai-provider" class="pf-input options-settings-input">
+            ${AI_PROVIDERS.map((p) => `<option value="${escapeHtml(p.value)}" ${(s.aiProvider || '') === p.value ? 'selected' : ''}>${escapeHtml(p.label)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="options-settings-row">
+          <label class="options-field-label">API Key</label>
+          <div class="options-settings-api-key-wrap">
+            <input type="password" id="settings-ai-apikey" class="pf-input options-settings-input" placeholder="Your API key" value="${escapeHtml(s.aiApiKey || '')}" autocomplete="off" />
+            <button type="button" class="options-settings-eye" id="settings-apikey-eye" aria-label="Show/hide API key">👁</button>
+          </div>
+        </div>
+        <div class="options-settings-row">
+          <label class="options-field-label">Model (optional)</label>
+          <input type="text" id="settings-ai-model" class="pf-input options-settings-input" placeholder="${escapeHtml(provider.defaultModel)}" value="${escapeHtml(s.aiModel || '')}" />
+        </div>
+        <label class="options-settings-row options-settings-toggle-row">
+          <span>Fall back to local parsing if AI fails</span>
+          <input type="checkbox" id="settings-local-fallback" class="options-settings-checkbox" ${s.localParsingFallback !== false ? 'checked' : ''} />
+        </label>
+        <div class="options-settings-row options-settings-test-row">
+          <button type="button" class="pf-button pf-button-ghost" id="settings-test-api-btn">Test API Key</button>
+          <span id="settings-test-result" class="options-settings-test-result ${state.testApiResult === 'ok' ? 'options-settings-test-ok' : state.testApiResult ? 'options-settings-test-fail' : ''}">${state.testApiResult === 'ok' ? '✓ OK' : state.testApiResult ? '✗ ' + escapeHtml(state.testApiResult) : ''}</span>
+        </div>
+      </div>
+      <div class="options-settings-actions">
+        <button type="button" class="pf-button pf-button-primary" id="settings-save-btn">Save Settings</button>
+      </div>
+      <p class="options-settings-muted">Your API key is stored locally and only sent to your chosen AI provider.</p>
+    </div>
+  `;
+
+  card.querySelector('#settings-toggle').addEventListener('click', () => {
+    state.settingsOpen = !state.settingsOpen;
+    render();
+  });
+
+  card.querySelector('#settings-ai-enabled').addEventListener('change', (e) => {
+    state.settingsDirty = { ...state.settingsDirty, aiParsingEnabled: e.target.checked };
+    render();
+  });
+
+  card.querySelector('#settings-ai-provider').addEventListener('change', (e) => {
+    state.settingsDirty = { ...state.settingsDirty, aiProvider: e.target.value };
+    render();
+  });
+
+  card.querySelector('#settings-ai-apikey').addEventListener('input', (e) => {
+    state.settingsDirty = { ...state.settingsDirty, aiApiKey: e.target.value };
+  });
+
+  card.querySelector('#settings-ai-model').addEventListener('input', (e) => {
+    state.settingsDirty = { ...state.settingsDirty, aiModel: e.target.value };
+  });
+
+  card.querySelector('#settings-local-fallback').addEventListener('change', (e) => {
+    state.settingsDirty = { ...state.settingsDirty, localParsingFallback: e.target.checked };
+  });
+
+  card.querySelector('#settings-apikey-eye').addEventListener('click', () => {
+    const input = card.querySelector('#settings-ai-apikey');
+    const btn = card.querySelector('#settings-apikey-eye');
+    if (input.type === 'password') {
+      input.type = 'text';
+      btn.textContent = '🙈';
+    } else {
+      input.type = 'password';
+      btn.textContent = '👁';
+    }
+  });
+
+  card.querySelector('#settings-test-api-btn').addEventListener('click', async () => {
+    const resultEl = card.querySelector('#settings-test-result');
+    resultEl.textContent = 'Testing…';
+    resultEl.className = 'options-settings-test-result';
+    const providerVal = card.querySelector('#settings-ai-provider').value;
+    const apiKey = card.querySelector('#settings-ai-apikey').value;
+    const model = card.querySelector('#settings-ai-model').value.trim();
+    const { ok, error } = await testApiKey(providerVal, apiKey, model || undefined);
+    state.testApiResult = ok ? 'ok' : error;
+    resultEl.textContent = ok ? '✓ OK' : `✗ ${error || 'Failed'}`;
+    resultEl.classList.add(ok ? 'options-settings-test-ok' : 'options-settings-test-fail');
+  });
+
+  card.querySelector('#settings-save-btn').addEventListener('click', async () => {
+    const defaults = getDefaultSettings();
+    const next = {
+      ...defaults,
+      aiParsingEnabled: card.querySelector('#settings-ai-enabled').checked,
+      aiProvider: card.querySelector('#settings-ai-provider').value,
+      aiApiKey: card.querySelector('#settings-ai-apikey').value.trim(),
+      aiModel: card.querySelector('#settings-ai-model').value.trim(),
+      localParsingFallback: card.querySelector('#settings-local-fallback').checked,
+    };
+    await persistSettings(next);
+    state.settings = next;
+    state.settingsDirty = { ...next };
+    showToast('Settings saved');
+    render();
+  });
+
+  return card;
 }
 
 function render() {
@@ -79,6 +216,8 @@ function renderListView() {
     </div>
   `;
   container.appendChild(header);
+
+  container.appendChild(renderSettingsCard());
 
   const searchSort = document.createElement('div');
   searchSort.className = 'options-search-sort';

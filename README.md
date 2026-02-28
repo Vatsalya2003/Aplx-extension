@@ -22,29 +22,25 @@ cd /Users/rohitdabhi/Desktop/Project/Extention
 
 ---
 
-## Step 2: Add resume parsing libraries (optional but recommended)
+## Step 2: Resume parsing (PDF built-in; DOCX optional)
 
-Resume **upload + parse** needs PDF.js and Mammoth.js in the `libs/` folder. Without them you can still create profiles **from scratch** in the popup or Options page.
+**PDF** resumes are parsed with the extension’s built-in parser—no extra libraries. **DOCX** parsing needs Mammoth.js in `libs/mammoth.browser.min.js` (run `npm run setup-libs` or add it manually). You can always use **Create from scratch** in the popup.
 
-**Required files:**
+**Option A – Using npm (for DOCX only)**
 
-| File | Purpose |
-|------|--------|
-| `libs/pdf.min.js` | PDF.js main library |
-| `libs/pdf.worker.min.js` | PDF.js worker |
-| `libs/mammoth.browser.min.js` | Mammoth.js for DOCX |
-
-**Option A – Using npm (easiest)**
+From the extension folder:
 
 ```bash
-# From the Extention folder
-npm init -y
-npm install pdfjs-dist mammoth
+npm install
+npm run setup-libs
+```
 
-mkdir -p libs
-cp node_modules/pdfjs-dist/build/pdf.min.js libs/
-cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs libs/pdf.worker.min.js
-cp node_modules/mammoth/mammoth.browser.min.js libs/
+This installs `pdfjs-dist-legacy` (PDF.js) and `mammoth`, then copies the required files into `libs/`. If you're starting from scratch:
+
+```bash
+npm init -y
+npm install pdfjs-dist-legacy mammoth --save-dev
+npm run setup-libs
 ```
 
 **Option B – Manual download**

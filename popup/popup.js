@@ -5,6 +5,7 @@ import {
   setDefaultProfile,
   exportProfile,
 } from '../utils/storage.js';
+import { getSettings } from '../utils/settings.js';
 import { parseResumeFile } from '../utils/parser.js';
 
 const rootEl = document.getElementById('popup-root');
@@ -21,6 +22,7 @@ let state = {
   profiles: [],
   selectedFile: null,
   parsingMessage: '',
+  parsingWithAI: false,
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -271,11 +273,12 @@ function renderUploadView() {
 }
 
 function renderParsingView() {
+  const method = state.parsingWithAI ? ' (AI)' : ' (local)';
   const container = document.createElement('div');
   container.className = 'popup-parsing';
   container.innerHTML = `
     <div class="popup-spinner"></div>
-    <div class="popup-parsing-title">Reading your resume…</div>
+    <div class="popup-parsing-title">Reading your resume${method}…</div>
     <div class="popup-parsing-subtitle">${
       state.parsingMessage || 'This takes a few seconds.'
     }</div>
@@ -300,10 +303,14 @@ function renderFooter() {
 async function startParsing(file) {
   state.view = VIEW.PARSING;
   state.parsingMessage = '';
+  const settings = await getSettings();
+  state.parsingWithAI = !!settings.aiParsingEnabled && !!String(settings.aiApiKey || '').trim();
   render();
 
   try {
-    const profile = await parseResumeFile(file);
+    const { profile, usedAI } = await parseResumeFile(file);
+    state.parsingWithAI = usedAI;
+    if (state.view === VIEW.PARSING) render();
     // Make first profile default if none set
     if (!state.profiles.some((p) => p.isDefault)) {
       profile.isDefault = true;
