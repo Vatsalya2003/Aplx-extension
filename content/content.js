@@ -15,6 +15,7 @@ let widgetState = {
   lastFillSummary: null,
   pillX: null,
   pillY: null,
+  theme: 'light',
 };
 
 let detectionScheduled = false;
@@ -199,7 +200,34 @@ function ensureWidget() {
   container.id = 'pfw-root-inner';
   widgetShadow.appendChild(container);
 
+  loadWidgetTheme();
   loadProfilesIntoWidget();
+}
+
+async function loadWidgetTheme() {
+  try {
+    const { profilefill_widget_theme } = await chrome.storage.local.get(['profilefill_widget_theme']);
+    if (profilefill_widget_theme === 'dark' || profilefill_widget_theme === 'light') {
+      widgetState.theme = profilefill_widget_theme;
+      applyWidgetTheme();
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+function applyWidgetTheme() {
+  if (!widgetShadow) return;
+  const root = widgetShadow.getElementById('pfw-root-inner');
+  if (!root) return;
+  root.classList.toggle('pfw-dark', widgetState.theme === 'dark');
+}
+
+function toggleWidgetTheme() {
+  widgetState.theme = widgetState.theme === 'dark' ? 'light' : 'dark';
+  chrome.storage.local.set({ profilefill_widget_theme: widgetState.theme });
+  applyWidgetTheme();
+  renderWidget();
 }
 
 async function loadProfilesIntoWidget() {
@@ -368,15 +396,20 @@ function renderWidget() {
 
   const header = document.createElement('div');
   header.className = 'pfw-header';
+  const themeIcon = widgetState.theme === 'dark' ? '\u2600' : '\u25CF';
   header.innerHTML = `
     <div class="pfw-header-left">
       <img src="${chrome.runtime.getURL('assets/Applix_logo.png')}" alt="" class="pfw-header-logo" />
       <span class="pfw-title">Applix</span>
     </div>
     <div class="pfw-header-buttons">
+      <button class="pfw-theme-btn" aria-label="Toggle theme">${themeIcon}</button>
       <button class="pfw-minimize-btn" aria-label="Collapse widget">&times;</button>
     </div>
   `;
+  header.querySelector('.pfw-theme-btn')?.addEventListener('click', () => {
+    toggleWidgetTheme();
+  });
   header.querySelector('.pfw-minimize-btn')?.addEventListener('click', () => {
     widgetState.expanded = false;
     renderWidget();
@@ -512,6 +545,7 @@ function renderWidget() {
   panel.appendChild(footer);
 
   container.appendChild(panel);
+  applyWidgetTheme();
 }
 
 function createToggle(on) {

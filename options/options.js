@@ -530,15 +530,16 @@ function renderEditorView() {
         ${renderLabeledInput('Email', 'personal-email', profile.personal.email, 'email')}
         ${renderSelect('Country Code (phone)', 'personal-countryCode', profile.personal.countryCode, [
           { value: '', label: 'Select' },
-          { value: '+1', label: '+1 (US/Canada)' },
-          { value: '+44', label: '+44 (UK)' },
+          { value: '+1', label: '+1 (United States)' },
+          { value: '+1CA', label: '+1 (Canada)' },
+          { value: '+44', label: '+44 (United Kingdom)' },
           { value: '+91', label: '+91 (India)' },
           { value: '+61', label: '+61 (Australia)' },
           { value: '+49', label: '+49 (Germany)' },
           { value: '+33', label: '+33 (France)' },
           { value: '+81', label: '+81 (Japan)' },
           { value: '+86', label: '+86 (China)' },
-          { value: '+971', label: '+971 (UAE)' },
+          { value: '+971', label: '+971 (United Arab Emirates)' },
           { value: '+353', label: '+353 (Ireland)' },
           { value: '+31', label: '+31 (Netherlands)' },
           { value: '+34', label: '+34 (Spain)' },
@@ -555,7 +556,10 @@ function renderEditorView() {
           { value: '', label: 'Select' },
           { value: 'Mobile', label: 'Mobile' },
           { value: 'Home', label: 'Home' },
+          { value: 'Landline', label: 'Landline' },
           { value: 'Work', label: 'Work' },
+          { value: 'Mobile Paid by SEL', label: 'Mobile Paid by SEL' },
+          { value: 'Other', label: 'Other' },
         ])}
         ${renderLabeledInput('Address', 'personal-address', profile.personal.address, 'text', 'Street address')}
         ${renderLabeledInput('City', 'personal-city', profile.personal.city, 'text')}
@@ -1435,7 +1439,7 @@ function createEmptyProfile() {
     isDefault: state.profiles.length === 0,
     personal: {
       firstName: '', lastName: '', email: '',
-      countryCode: '', phone: '', phoneType: '',
+      countryCode: '', phone: '', phoneType: 'Mobile',
       address: '', city: '', state: '', location: '',
       country: '', pincode: '',
       linkedIn: '', github: '', portfolio: '', website: '',
