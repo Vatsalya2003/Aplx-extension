@@ -75,7 +75,10 @@ function renderHeader() {
   const left = document.createElement('div');
   left.className = 'popup-header-left';
   left.innerHTML = `
-    <div class="popup-title">ProfileFill</div>
+    <div class="popup-title-row">
+      <img src="${chrome.runtime.getURL('assets/Applix_logo.png')}" alt="Applix" class="popup-logo" />
+      <span class="popup-title">Applix</span>
+    </div>
     <div class="popup-subtitle">Profiles live only in your browser.</div>
   `;
 
@@ -349,7 +352,7 @@ async function startParsing(file) {
       window.close();
     }, 200);
   } catch (e) {
-    console.error('ProfileFill parse error:', e);
+    console.error('Applix parse error:', e);
     state.parsingMessage =
       (e && (e.message || e.toString())) ||
       'Could not read this file. Please try another resume or create from scratch.';

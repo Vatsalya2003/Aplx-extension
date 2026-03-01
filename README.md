@@ -1,134 +1,111 @@
-# ProfileFill
+<div align="center">
+  <img src="assets/Applix_logo.png" alt="Applix" width="80" height="80" style="border-radius: 16px;" />
+  
+  # Applix
 
-Chrome extension (Manifest V3) that lets you create profiles from your resume and auto-fill job application forms. All data stays in your browser—no backend, no uploads.
+  **Auto-fill job applications instantly from your resume.**
+  
+  A Chrome extension that creates profiles from your resume and fills job application forms with one click. All data stays in your browser — no backend, no uploads, no tracking.
 
----
-
-# Steps to run ProfileFill
-
-Follow these steps in order to run the extension in Chrome.
-
----
-
-## Step 1: Open the project folder
-
-Open a terminal and go to the extension folder:
-
-```bash
-cd /Users/rohitdabhi/Desktop/Project/Extention
-```
-
-(Replace with your actual path if different.)
+  ![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?style=flat&logo=googlechrome&logoColor=white)
+  ![Manifest V3](https://img.shields.io/badge/Manifest-V3-34A853?style=flat)
+  ![License](https://img.shields.io/badge/License-MIT-000000?style=flat)
+</div>
 
 ---
 
-## Step 2: Resume parsing (PDF built-in; DOCX optional)
+## Features
 
-**PDF** resumes are parsed with the extension’s built-in parser—no extra libraries. **DOCX** parsing needs Mammoth.js in `libs/mammoth.browser.min.js` (run `npm run setup-libs` or add it manually). You can always use **Create from scratch** in the popup.
+- **Resume Parsing** — Upload a PDF or DOCX resume and Applix extracts your information automatically
+- **AI-Powered Parsing** *(optional)* — Connect your own OpenAI, Gemini, or Claude API key for more accurate parsing  
+- **One-Click Auto-Fill** — Fill job application forms on Greenhouse, Lever, Workday, Ashby, and more
+- **Multiple Profiles** — Create different profiles for different types of roles
+- **Smart Field Detection** — Recognizes 40+ field types including name, email, phone, address, work authorization, and EEO fields
+- **Dark Mode** — Full dark/light theme support
+- **Privacy First** — Everything runs locally in your browser. Zero data leaves your machine.
 
-**Option A – Using npm (for DOCX only)**
+---
 
-From the extension folder:
+## Quick Start
 
+### Installation
+
+1. Clone or download this repository
+2. Open Chrome and navigate to `chrome://extensions/`
+3. Enable **Developer mode** (top-right toggle)
+4. Click **Load unpacked** and select the project folder
+5. Pin Applix from the extensions menu
+
+### Setup Libraries (for resume parsing)
 ```bash
 npm install
 npm run setup-libs
 ```
 
-This installs `pdfjs-dist-legacy` (PDF.js) and `mammoth`, then copies the required files into `libs/`. If you're starting from scratch:
-
-```bash
-npm init -y
-npm install pdfjs-dist-legacy mammoth --save-dev
-npm run setup-libs
-```
-
-**Option B – Manual download**
-
-1. **PDF.js**: Go to [https://mozilla.github.io/pdf.js/getting_started/](https://mozilla.github.io/pdf.js/getting_started/), download the “legacy build,” and copy `pdf.min.js` and the worker file into `libs/`. Rename the worker to `pdf.worker.min.js`.
-2. **Mammoth**: From [mammoth.js releases](https://github.com/mwilliamson/mammoth.js/releases) or the repo, get the browser build and save it as `libs/mammoth.browser.min.js`.
-
-If you skip this step, use **“Create from scratch instead”** in the popup to build profiles without uploading a resume.
+This installs PDF.js and Mammoth.js for parsing PDF and DOCX resumes. If you skip this step, you can still create profiles manually using "Create from scratch."
 
 ---
 
-## Step 3: Add extension icons (optional)
-
-Chrome expects these PNGs in `assets/`:
-
-- `assets/icon-16.png` (16×16 px)
-- `assets/icon-48.png` (48×48 px)
-- `assets/icon-128.png` (128×128 px)
-
-You can use any three PNGs (e.g. a document icon or “PF” logo). If you skip this, Chrome may show a default icon; the extension will still run.
-
----
-
-## Step 4: Load the extension in Chrome
-
-1. Open Chrome and go to: **`chrome://extensions/`**
-2. Turn **Developer mode** ON (top-right toggle).
-3. Click **Load unpacked**.
-4. Select the **Extention** folder (the one that contains `manifest.json`).
-5. Confirm that **ProfileFill** appears in the list with no errors.
-
----
-
-## Step 5: Pin the extension (optional)
-
-1. Click the **puzzle piece** (Extensions) in the Chrome toolbar.
-2. Find **ProfileFill** and click the **pin** icon so it appears in the toolbar.
-
----
-
-## Step 6: Verify it’s running
-
-1. **Popup**  
-   Click the ProfileFill icon in the toolbar. You should see either “No profiles yet” (with “+ New Profile”) or your profile list.
-
-2. **Options / Manage profiles**  
-   Right‑click the ProfileFill icon → **Options**, or click “Manage Profiles →” in the popup. The full profile editor should open in a new tab.
-
-3. **Fill widget on a job page**  
-   Open a job application page (e.g. [boards.greenhouse.io](https://boards.greenhouse.io) or any site with “apply” in the URL). A small **Fill** pill should appear at the bottom‑right. Click it, choose a profile, and click **Auto-Fill Application**.
-
----
-
-## Quick reference
+## Usage
 
 | Action | How |
-|--------|-----|
-| Create profile from resume | Popup → **+ New Profile** → drop or browse PDF/DOCX |
-| Create profile from scratch | Popup → **+ New Profile** → **Create from scratch instead** (or Options → **+ New Profile**) |
-| Edit / manage profiles | Popup → **Manage Profiles →** or right‑click icon → **Options** |
-| Auto-fill a form | On a job application page → click **Fill** pill → select profile → **Auto-Fill Application** |
-| Toggle Fill widget | `Cmd + Shift + F` (Mac) or `Ctrl + Shift + F` (Windows/Linux) |
-| Open popup | `Cmd + Shift + P` (Mac) or `Ctrl + Shift + P` (Windows/Linux) |
+|---|---|
+| Create profile from resume | Click Applix icon → **+ New Profile** → Upload PDF/DOCX |
+| Create profile manually | Click Applix icon → **+ New Profile** → **Create from scratch** |
+| Edit profiles | Click **Manage Profiles →** or right-click icon → **Options** |
+| Auto-fill a form | Visit a job application page → Click the **Fill** button → Select profile → **Auto-Fill Application** |
+| Toggle Fill widget | `Cmd+Shift+F` (Mac) / `Ctrl+Shift+F` (Windows) |
 
 ---
 
-## Troubleshooting
+## Supported Job Boards
 
-| Issue | What to do |
-|-------|------------|
-| Extension won’t load | Check that `manifest.json` is in the folder you selected. Fix any errors shown on `chrome://extensions/`. |
-| “No profiles yet” but upload does nothing | Add the three files to `libs/` (Step 2), or use **Create from scratch instead**. |
-| Fill pill doesn’t appear | Open a page that looks like a job application (e.g. `/apply`, “resume”, “first name” on the page). Or press `Ctrl+Shift+F` / `Cmd+Shift+F` to force the widget to toggle. |
-| Icons missing / broken | Add `icon-16.png`, `icon-48.png`, `icon-128.png` to `assets/` (Step 3). |
+| Platform | Status |
+|---|---|
+| Greenhouse (boards.greenhouse.io) | ✅ Supported |
+| Lever (jobs.lever.co) | ✅ Supported |
+| Workday (myworkdayjobs.com) | ✅ Supported |
+| Ashby (ashbyhq.com) | ✅ Supported |
+| LinkedIn Easy Apply | ✅ Supported |
+| Indeed | ✅ Supported |
+| SmartRecruiters | ✅ Supported |
+| Custom career pages | ✅ Partial |
 
 ---
 
-## Testing checklist
+## AI Parsing (Optional)
 
-**Form fill:**
+Applix can use AI to parse your resume more accurately. This is optional — local parsing works without any API key.
 
-- [ ] Greenhouse (boards.greenhouse.io)
-- [ ] Lever (jobs.lever.co)
-- [ ] Workday, Ashby, LinkedIn Easy Apply, custom career pages
+1. Open Applix options page
+2. Click the ⚙ Settings icon
+3. Enable "AI Resume Parsing"
+4. Choose a provider and enter your API key:
+   - **Google Gemini** — Free tier available at [aistudio.google.com](https://aistudio.google.com)
+   - **OpenAI** — Get a key at [platform.openai.com](https://platform.openai.com)
+   - **Anthropic Claude** — Get a key at [console.anthropic.com](https://console.anthropic.com)
 
-**Resume / profiles:**
+Your API key is stored locally and only sent to the provider you choose.
 
-- [ ] Upload PDF resume → parse → edit in Options → save
-- [ ] Upload DOCX resume
-- [ ] Create from scratch (no upload)
-- [ ] Import / export profile JSON from Options
+---
+
+## Project Structure
+
+```
+applix/
+├── assets/              # Icons and logo
+├── background/          # Service worker
+├── content/             # Content script (form detection + fill widget)
+├── libs/                # PDF.js and Mammoth.js libraries
+├── options/             # Full-page profile editor
+├── popup/               # Extension popup
+├── styles/              # Shared design system
+└── utils/               # Core logic
+    ├── aiParser.js      # AI-powered resume parsing
+    ├── fieldMapper.js   # Form field classification
+    ├── formFiller.js    # Form filling engine
+    ├── parser.js        # Local resume parser
+    ├── settings.js      # Settings management
+    ├── storage.js       # Chrome storage utilities
+    └── theme.js         # Dark/light theme
+```

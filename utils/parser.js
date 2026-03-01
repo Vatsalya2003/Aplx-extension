@@ -1,11 +1,11 @@
-// Resume parsing logic for ProfileFill
+// Resume parsing logic for Applix
 // PDF: pdf.js (pdfjs-dist-legacy) via script tag; fallback to raw extraction. DOCX: mammoth.js in libs/.
 
 if (typeof window !== 'undefined' && window.pdfjsLib && typeof chrome !== 'undefined' && chrome.runtime?.getURL) {
   try {
     window.pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('libs/pdf.worker.min.js');
   } catch (e) {
-    console.warn('ProfileFill: could not set PDF.js workerSrc', e);
+    console.warn('Applix: could not set PDF.js workerSrc', e);
   }
 }
 
@@ -52,7 +52,7 @@ export async function parseResumeFile(file) {
         usedAI = true;
       } catch (aiErr) {
         if (settings.localParsingFallback !== false) {
-          console.warn('ProfileFill: AI parsing failed, using local fallback', aiErr);
+          console.warn('Applix: AI parsing failed, using local fallback', aiErr);
           parsed = parseResumeText(rawText);
         } else {
           throw aiErr;
@@ -153,7 +153,7 @@ async function extractTextFromPdf(arrayBuffer) {
     const text = pageTexts.join('\n');
     return text ? normalizeWhitespace(text) : extractTextFromPdfRaw(arrayBuffer);
   } catch (e) {
-    console.warn('ProfileFill: pdf.js extraction failed, using raw fallback', e);
+    console.warn('Applix: pdf.js extraction failed, using raw fallback', e);
     return extractTextFromPdfRaw(arrayBuffer);
   }
 }

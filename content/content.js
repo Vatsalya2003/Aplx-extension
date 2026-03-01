@@ -324,7 +324,7 @@ function renderWidget() {
     pill.type = 'button';
     pill.className = 'pfw-pill pfw-pulse-once';
     pill.innerHTML = `
-      <span class="pfw-pill-icon">\u25A0</span>
+      <img src="${chrome.runtime.getURL('assets/Applix_logo.png')}" alt="" class="pfw-pill-logo" />
       <span>Fill</span>
     `;
 
@@ -369,9 +369,12 @@ function renderWidget() {
   const header = document.createElement('div');
   header.className = 'pfw-header';
   header.innerHTML = `
-    <div class="pfw-title">ProfileFill</div>
+    <div class="pfw-header-left">
+      <img src="${chrome.runtime.getURL('assets/Applix_logo.png')}" alt="" class="pfw-header-logo" />
+      <span class="pfw-title">Applix</span>
+    </div>
     <div class="pfw-header-buttons">
-      <button class="pfw-minimize-btn" aria-label="Collapse ProfileFill widget">&times;</button>
+      <button class="pfw-minimize-btn" aria-label="Collapse widget">&times;</button>
     </div>
   `;
   header.querySelector('.pfw-minimize-btn')?.addEventListener('click', () => {
@@ -527,7 +530,7 @@ async function onAutoFillClick() {
 
   try {
     if (!window.ProfileFillFormFiller || typeof window.ProfileFillFormFiller.fill !== 'function') {
-      console.warn('ProfileFill form filler not available on this page.');
+      console.warn('Applix form filler not available on this page.');
       widgetState.lastFillSummary = 'Form fill engine not available on this page.';
       renderWidget();
       return;
@@ -542,7 +545,7 @@ async function onAutoFillClick() {
       summary || 'Attempted to fill application. Review fields before submitting.';
     renderWidget();
   } catch (e) {
-    console.error('ProfileFill fill error', e);
+    console.error('Applix fill error', e);
     widgetState.lastFillSummary =
       'Something went wrong while filling. Please review fields manually.';
     renderWidget();

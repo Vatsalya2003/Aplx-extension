@@ -1,4 +1,4 @@
-/* ProfileFill — Popup */
+/* Applix — Popup */
 
 #popup-root {
   width: 340px;
@@ -26,6 +26,17 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+.popup-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.popup-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: contain;
 }
 .popup-title {
   font-size: var(--pf-font-size-lg);

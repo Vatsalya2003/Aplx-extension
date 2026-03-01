@@ -1,4 +1,4 @@
-// Field mapping patterns and helpers for ProfileFill form filling
+// Field mapping patterns and helpers for Applix form filling
 
 const FIELD_PATTERNS = {
   firstName: {

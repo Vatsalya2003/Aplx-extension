@@ -1,4 +1,4 @@
-// Generic form filling engine for ProfileFill
+// Generic form filling engine for Applix
 // Expects window.ProfileFillFieldMapper to be available (from utils/fieldMapper.js)
 
 (function () {

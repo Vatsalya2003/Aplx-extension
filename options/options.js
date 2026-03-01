@@ -67,9 +67,20 @@ function renderNav() {
   const nav = document.createElement('nav');
   nav.className = 'options-nav';
 
+  const left = document.createElement('div');
+  left.className = 'options-nav-left';
+
+  const logo = document.createElement('img');
+  logo.src = chrome.runtime.getURL('assets/Applix_logo.png');
+  logo.alt = 'Applix';
+  logo.className = 'options-nav-logo';
+
   const brand = document.createElement('span');
   brand.className = 'options-nav-brand';
-  brand.textContent = 'ProfileFill';
+  brand.textContent = 'Applix';
+
+  left.appendChild(logo);
+  left.appendChild(brand);
 
   const right = document.createElement('div');
   right.className = 'options-nav-right';
@@ -97,7 +108,7 @@ function renderNav() {
   right.appendChild(settingsBtn);
   right.appendChild(themeBtn);
   right.appendChild(version);
-  nav.appendChild(brand);
+  nav.appendChild(left);
   nav.appendChild(right);
   return nav;
 }

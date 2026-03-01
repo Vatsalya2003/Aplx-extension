@@ -1,4 +1,4 @@
-/* ProfileFill — Options Page */
+/* Applix — Options Page */
 
 /* ── Top navigation bar ─────────────────────── */
 .options-nav {
@@ -11,6 +11,17 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.options-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.options-nav-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  object-fit: contain;
 }
 .options-nav-brand {
   font-size: var(--pf-font-size-lg);
