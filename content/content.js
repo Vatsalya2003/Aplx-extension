@@ -13,6 +13,8 @@ let widgetState = {
   attachCoverLetter: false,
   selectedCoverLetterId: null,
   lastFillSummary: null,
+  pillX: null,
+  pillY: null,
 };
 
 let detectionScheduled = false;
@@ -37,7 +39,6 @@ function init() {
 function onReady() {
   scheduleDetection();
   setupMutationObserver();
-  // Re-run after delays so SPAs (e.g. Workday) that load the form later still get the widget
   setTimeout(scheduleDetection, 1500);
   setTimeout(scheduleDetection, 4000);
   setTimeout(scheduleDetection, 6000);
@@ -221,9 +222,88 @@ function toggleWidgetVisibility() {
   renderWidget();
 }
 
-function toggleWidgetExpanded() {
-  widgetState.expanded = !widgetState.expanded;
-  renderWidget();
+function applyPosition(container) {
+  if (widgetState.pillX != null && widgetState.pillY != null) {
+    container.style.left = widgetState.pillX + 'px';
+    container.style.top = widgetState.pillY + 'px';
+    container.style.right = 'auto';
+    container.style.bottom = 'auto';
+  } else {
+    container.style.right = '20px';
+    container.style.bottom = '20px';
+    container.style.left = 'auto';
+    container.style.top = 'auto';
+  }
+}
+
+function makePillDraggable(pillElement, container) {
+  let hasMoved = false;
+  let startX, startY, startPillX, startPillY;
+
+  function onPointerDown(e) {
+    if (e.button && e.button !== 0) return;
+    e.preventDefault();
+
+    hasMoved = false;
+    startX = e.clientX ?? e.touches?.[0]?.clientX ?? 0;
+    startY = e.clientY ?? e.touches?.[0]?.clientY ?? 0;
+
+    const rect = container.getBoundingClientRect();
+    startPillX = rect.left;
+    startPillY = rect.top;
+
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('mouseup', onPointerUp);
+    document.addEventListener('touchmove', onPointerMove, { passive: false });
+    document.addEventListener('touchend', onPointerUp);
+  }
+
+  function onPointerMove(e) {
+    e.preventDefault();
+    const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? 0;
+    const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? 0;
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+
+    if (!hasMoved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+    hasMoved = true;
+
+    pillElement.classList.add('dragging');
+
+    let newX = startPillX + dx;
+    let newY = startPillY + dy;
+
+    const pillW = pillElement.offsetWidth || 80;
+    const pillH = pillElement.offsetHeight || 40;
+    newX = Math.max(0, Math.min(window.innerWidth - pillW, newX));
+    newY = Math.max(0, Math.min(window.innerHeight - pillH, newY));
+
+    container.style.left = newX + 'px';
+    container.style.top = newY + 'px';
+    container.style.right = 'auto';
+    container.style.bottom = 'auto';
+  }
+
+  function onPointerUp() {
+    document.removeEventListener('mousemove', onPointerMove);
+    document.removeEventListener('mouseup', onPointerUp);
+    document.removeEventListener('touchmove', onPointerMove);
+    document.removeEventListener('touchend', onPointerUp);
+
+    pillElement.classList.remove('dragging');
+
+    if (hasMoved) {
+      const rect = container.getBoundingClientRect();
+      widgetState.pillX = rect.left;
+      widgetState.pillY = rect.top;
+    } else {
+      widgetState.expanded = true;
+      renderWidget();
+    }
+  }
+
+  pillElement.addEventListener('mousedown', onPointerDown);
+  pillElement.addEventListener('touchstart', onPointerDown, { passive: false });
 }
 
 function renderWidget() {
@@ -244,30 +324,57 @@ function renderWidget() {
     pill.type = 'button';
     pill.className = 'pfw-pill pfw-pulse-once';
     pill.innerHTML = `
-      <span class="pfw-pill-icon">
-        <span class="pfw-pill-icon-inner"></span>
-      </span>
+      <img src="${chrome.runtime.getURL('assets/Applix_logo.png')}" alt="" class="pfw-pill-logo" />
       <span>Fill</span>
     `;
-    pill.addEventListener('click', () => {
-      widgetState.expanded = true;
-      renderWidget();
-    });
+
+    applyPosition(container);
     container.appendChild(pill);
+    makePillDraggable(pill, container);
+
     setTimeout(() => pill.classList.remove('pfw-pulse-once'), 1000);
     return;
+  }
+
+  // Position expanded panel near the pill location
+  if (widgetState.pillX != null && widgetState.pillY != null) {
+    let panelX = widgetState.pillX;
+    let panelY = widgetState.pillY;
+    const panelW = 300;
+    const panelH = 420;
+
+    if (panelX + panelW > window.innerWidth) {
+      panelX = window.innerWidth - panelW - 12;
+    }
+    if (panelX < 0) panelX = 12;
+    if (panelY + panelH > window.innerHeight) {
+      panelY = window.innerHeight - panelH - 12;
+    }
+    if (panelY < 0) panelY = 12;
+
+    container.style.left = panelX + 'px';
+    container.style.top = panelY + 'px';
+    container.style.right = 'auto';
+    container.style.bottom = 'auto';
+  } else {
+    container.style.right = '20px';
+    container.style.bottom = '20px';
+    container.style.left = 'auto';
+    container.style.top = 'auto';
   }
 
   const panel = document.createElement('div');
   panel.className = 'pfw-panel';
 
-  // Header
   const header = document.createElement('div');
   header.className = 'pfw-header';
   header.innerHTML = `
-    <div class="pfw-title">ProfileFill</div>
+    <div class="pfw-header-left">
+      <img src="${chrome.runtime.getURL('assets/Applix_logo.png')}" alt="" class="pfw-header-logo" />
+      <span class="pfw-title">Applix</span>
+    </div>
     <div class="pfw-header-buttons">
-      <button class="pfw-minimize-btn" aria-label="Collapse ProfileFill widget">&times;</button>
+      <button class="pfw-minimize-btn" aria-label="Collapse widget">&times;</button>
     </div>
   `;
   header.querySelector('.pfw-minimize-btn')?.addEventListener('click', () => {
@@ -279,7 +386,7 @@ function renderWidget() {
   const prompt = document.createElement('div');
   prompt.className = 'pfw-summary';
   prompt.style.marginBottom = '6px';
-  prompt.textContent = 'Want to fill this form? Select a profile and click Auto-Fill below.';
+  prompt.textContent = 'Select a profile and click Auto-Fill below.';
   panel.appendChild(prompt);
 
   const body = document.createElement('div');
@@ -290,8 +397,7 @@ function renderWidget() {
 
   if (!widgetState.profiles.length) {
     const empty = document.createElement('div');
-    empty.style.fontSize = '12px';
-    empty.style.color = '#8e8e93';
+    empty.style.cssText = 'font-size:12px;color:#6b7280;padding:8px 0;';
     empty.textContent = 'No profiles found. Create one from the extension popup.';
     list.appendChild(empty);
   } else {
@@ -317,7 +423,7 @@ function renderWidget() {
       if (profile.experience && profile.experience.length && profile.experience[0].title) {
         subtitleParts.push(profile.experience[0].title);
       }
-      const subtitle = subtitleParts.join(' • ');
+      const subtitle = subtitleParts.join(' \u2022 ');
 
       const main = document.createElement('div');
       main.className = 'pfw-profile-main';
@@ -352,7 +458,6 @@ function renderWidget() {
 
   body.appendChild(list);
 
-  // Attach options
   const rowAttachResume = document.createElement('div');
   rowAttachResume.className = 'pfw-row';
   rowAttachResume.innerHTML = `<span>Attach resume</span>`;
@@ -390,10 +495,10 @@ function renderWidget() {
   const summary = document.createElement('div');
   summary.className = 'pfw-summary';
   summary.textContent =
-    widgetState.lastFillSummary || 'ProfileFill never sends data to any server.';
+    widgetState.lastFillSummary || 'Data stays in your browser.';
   const manageLink = document.createElement('span');
   manageLink.className = 'pfw-footer-link';
-  manageLink.textContent = 'Edit Profile →';
+  manageLink.textContent = 'Edit Profile \u2192';
   manageLink.addEventListener('click', () => {
     if (!widgetState.selectedProfileId) return;
     chrome.runtime.sendMessage({
@@ -425,7 +530,7 @@ async function onAutoFillClick() {
 
   try {
     if (!window.ProfileFillFormFiller || typeof window.ProfileFillFormFiller.fill !== 'function') {
-      console.warn('ProfileFill form filler not available on this page.');
+      console.warn('Applix form filler not available on this page.');
       widgetState.lastFillSummary = 'Form fill engine not available on this page.';
       renderWidget();
       return;
@@ -440,7 +545,7 @@ async function onAutoFillClick() {
       summary || 'Attempted to fill application. Review fields before submitting.';
     renderWidget();
   } catch (e) {
-    console.error('ProfileFill fill error', e);
+    console.error('Applix fill error', e);
     widgetState.lastFillSummary =
       'Something went wrong while filling. Please review fields manually.';
     renderWidget();
@@ -454,4 +559,3 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
-

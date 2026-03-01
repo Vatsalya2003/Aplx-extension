@@ -1,4 +1,4 @@
-// ProfileFill settings (AI parsing, etc.) stored in chrome.storage.local
+// Applix settings (AI parsing, etc.) stored in chrome.storage.local
 
 const SETTINGS_KEY = 'profilefill_settings';
 

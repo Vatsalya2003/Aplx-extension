@@ -1,9 +1,9 @@
-// Background service worker for ProfileFill
+// Background service worker for Applix
 
 import { getDefaultProfile } from '../utils/storage.js';
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('ProfileFill installed');
+  console.log('Applix installed');
 });
 
 // Handle keyboard shortcuts / commands

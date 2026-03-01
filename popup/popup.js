@@ -7,6 +7,7 @@ import {
 } from '../utils/storage.js';
 import { getSettings } from '../utils/settings.js';
 import { parseResumeFile } from '../utils/parser.js';
+import { initTheme, toggleTheme, getCurrentTheme } from '../utils/theme.js';
 
 const rootEl = document.getElementById('popup-root');
 
@@ -26,6 +27,7 @@ let state = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
   await loadProfiles();
   state.view = state.profiles.length ? VIEW.LIST : VIEW.EMPTY;
   render();
@@ -42,6 +44,7 @@ function render() {
   shell.className = 'popup-shell';
 
   shell.appendChild(renderHeader());
+  shell.appendChild(createSeparator());
 
   if (state.view === VIEW.EMPTY) {
     shell.appendChild(renderEmptyState());
@@ -53,23 +56,56 @@ function render() {
     shell.appendChild(renderParsingView());
   }
 
+  shell.appendChild(createSeparator());
   shell.appendChild(renderFooter());
 
   rootEl.appendChild(shell);
 }
 
+function createSeparator() {
+  const hr = document.createElement('hr');
+  hr.className = 'popup-separator';
+  return hr;
+}
+
 function renderHeader() {
   const header = document.createElement('div');
   header.className = 'popup-header';
-  header.innerHTML = `
-    <div>
-      <div class="popup-title">ProfileFill</div>
-      <div class="popup-subtitle">Profiles live only in your browser.</div>
+
+  const left = document.createElement('div');
+  left.className = 'popup-header-left';
+  left.innerHTML = `
+    <div class="popup-title-row">
+      <img src="${chrome.runtime.getURL('assets/Applix_logo.png')}" alt="Applix" class="popup-logo" />
+      <span class="popup-title">Applix</span>
     </div>
-    <div class="popup-header-icon">
-      <div class="popup-header-icon-inner"></div>
-    </div>
+    <div class="popup-subtitle">Profiles live only in your browser.</div>
   `;
+
+  const right = document.createElement('div');
+  right.className = 'popup-header-right';
+
+  const settingsBtn = document.createElement('button');
+  settingsBtn.className = 'popup-header-btn';
+  settingsBtn.setAttribute('aria-label', 'Settings');
+  settingsBtn.innerHTML = '&#9881;';
+  settingsBtn.addEventListener('click', () => {
+    openOptionsTab();
+  });
+
+  const themeBtn = document.createElement('button');
+  themeBtn.className = 'popup-header-btn';
+  themeBtn.setAttribute('aria-label', 'Toggle theme');
+  themeBtn.textContent = getCurrentTheme() === 'dark' ? '\u2600' : '\u25CF';
+  themeBtn.addEventListener('click', () => {
+    toggleTheme();
+    themeBtn.textContent = getCurrentTheme() === 'dark' ? '\u2600' : '\u25CF';
+  });
+
+  right.appendChild(settingsBtn);
+  right.appendChild(themeBtn);
+  header.appendChild(left);
+  header.appendChild(right);
   return header;
 }
 
@@ -77,11 +113,9 @@ function renderEmptyState() {
   const container = document.createElement('div');
   container.className = 'popup-empty';
   container.innerHTML = `
-    <div class="popup-empty-illustration">
-      <div class="popup-empty-illustration-inner"></div>
-    </div>
+    <div class="popup-empty-icon">+</div>
     <div class="popup-empty-title">No profiles yet</div>
-    <div class="popup-empty-subtitle">Create your first profile by uploading a resume.</div>
+    <div class="popup-empty-subtitle">Upload a resume or create from scratch.</div>
     <button class="pf-button pf-button-primary" id="popup-new-profile-btn">+ New Profile</button>
   `;
 
@@ -117,7 +151,7 @@ function renderListView() {
     if (profile.experience && profile.experience.length && profile.experience[0].title) {
       subtitleParts.push(profile.experience[0].title);
     }
-    const subtitle = subtitleParts.join(' • ');
+    const subtitle = subtitleParts.join(' \u2022 ');
 
     const main = document.createElement('div');
     main.className = 'popup-profile-main';
@@ -141,7 +175,7 @@ function renderListView() {
 
     const menuButton = document.createElement('button');
     menuButton.className = 'popup-menu-button';
-    menuButton.innerHTML = '&#8226;&#8226;&#8226;';
+    menuButton.innerHTML = '&#8943;';
     menuButton.addEventListener('click', (event) => {
       event.stopPropagation();
       openMenuForProfile(profile, menuButton);
@@ -162,9 +196,6 @@ function renderListView() {
   container.appendChild(list);
 
   const ctaRow = document.createElement('div');
-  ctaRow.style.display = 'flex';
-  ctaRow.style.justifyContent = 'space-between';
-  ctaRow.style.alignItems = 'center';
   ctaRow.style.marginTop = '8px';
   ctaRow.innerHTML = `
     <button class="pf-button pf-button-ghost" id="popup-new-profile-secondary">+ New Profile</button>
@@ -186,7 +217,6 @@ function renderUploadView() {
   if (state.parsingMessage) {
     const errBox = document.createElement('div');
     errBox.className = 'popup-error-box';
-    errBox.style.cssText = 'margin-bottom:10px;padding:8px 10px;background:#fff0f0;border-radius:10px;font-size:12px;color:#c00;';
     errBox.textContent = state.parsingMessage;
     const tryAgain = document.createElement('button');
     tryAgain.className = 'pf-button pf-button-ghost';
@@ -205,16 +235,14 @@ function renderUploadView() {
   dropzone.className = 'popup-dropzone';
   dropzone.id = 'popup-dropzone';
   dropzone.innerHTML = `
-    <div class="popup-dropzone-icon">
-      <div class="popup-dropzone-icon-inner"></div>
-    </div>
+    <div class="popup-dropzone-icon">\u2191</div>
     <div class="popup-dropzone-title">Drop your resume here</div>
     <div class="popup-dropzone-subtitle">PDF or DOCX, up to 5MB</div>
     <div class="popup-dropzone-browse" id="popup-browse-link">or browse files</div>
     <input id="popup-file-input" type="file" accept=".pdf,.docx" style="display:none" />
     <div class="popup-file-selected" id="popup-file-selected"></div>
-    <div class="popup-create-from-scratch" style="margin-top:10px;font-size:12px;">
-      <span class="popup-footer-link" id="popup-create-scratch-link">Create from scratch instead</span>
+    <div class="popup-create-link">
+      <span id="popup-create-scratch-link">Create from scratch instead</span>
     </div>
   `;
 
@@ -278,7 +306,7 @@ function renderParsingView() {
   container.className = 'popup-parsing';
   container.innerHTML = `
     <div class="popup-spinner"></div>
-    <div class="popup-parsing-title">Reading your resume${method}…</div>
+    <div class="popup-parsing-title">Parsing your resume${method}\u2026</div>
     <div class="popup-parsing-subtitle">${
       state.parsingMessage || 'This takes a few seconds.'
     }</div>
@@ -290,7 +318,8 @@ function renderFooter() {
   const footer = document.createElement('div');
   footer.className = 'popup-footer';
   footer.innerHTML = `
-    <div class="popup-footer-link" id="popup-manage-link">Manage Profiles →</div>
+    <div class="popup-footer-link" id="popup-manage-link">Manage Profiles \u2192</div>
+    <div class="popup-footer-version">v1.0.0</div>
   `;
 
   footer.querySelector('#popup-manage-link')?.addEventListener('click', () => {
@@ -311,22 +340,19 @@ async function startParsing(file) {
     const { profile, usedAI } = await parseResumeFile(file);
     state.parsingWithAI = usedAI;
     if (state.view === VIEW.PARSING) render();
-    // Make first profile default if none set
     if (!state.profiles.some((p) => p.isDefault)) {
       profile.isDefault = true;
     }
     await saveProfile(profile);
     await loadProfiles();
 
-    // Open editor for this profile in options page
     openEditorTab(profile.id);
 
-    // Close popup after a short delay so user sees the success momentarily
     setTimeout(() => {
       window.close();
     }, 200);
   } catch (e) {
-    console.error('ProfileFill parse error:', e);
+    console.error('Applix parse error:', e);
     state.parsingMessage =
       (e && (e.message || e.toString())) ||
       'Could not read this file. Please try another resume or create from scratch.';
@@ -412,4 +438,3 @@ function openMenuForProfile(profile, anchorEl) {
     document.addEventListener('click', onClickAway);
   }, 0);
 }
-

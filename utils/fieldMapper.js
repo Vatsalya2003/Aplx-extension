@@ -1,4 +1,4 @@
-// Field mapping patterns and helpers for ProfileFill form filling
+// Field mapping patterns and helpers for Applix form filling
 
 const FIELD_PATTERNS = {
   firstName: {
@@ -48,6 +48,10 @@ const FIELD_PATTERNS = {
   phoneDeviceType: {
     labels: ['phone device type', 'phone type', 'device type'],
     names: ['phoneDeviceType', 'phone_device_type', 'phone_type', 'deviceType'],
+  },
+  phoneExtension: {
+    labels: ['phone extension', 'extension', 'ext', 'ext.', 'phone ext'],
+    names: ['phoneExtension', 'phone_extension', 'extension', 'ext'],
   },
   address: {
     labels: ['address', 'address line 1', 'street address', 'address 1', 'street', 'full address'],

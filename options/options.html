@@ -2,14 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>ProfileFill – Profiles</title>
+    <title>Applix - Profiles</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="../styles/shared.css" />
     <link rel="stylesheet" href="./options.css" />
   </head>
   <body>
-    <div id="app" class="pf-page"></div>
+    <div id="app"></div>
     <script src="../libs/pdf.min.js"></script>
+    <script type="module">
+      import { initTheme } from '../utils/theme.js';
+      initTheme();
+    </script>
     <script type="module" src="./options.js"></script>
   </body>
   </html>

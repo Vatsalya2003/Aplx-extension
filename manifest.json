@@ -1,8 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "ProfileFill",
+  "name": "Applix",
   "version": "1.0.0",
   "description": "Create profiles from your resume and auto-fill job applications instantly.",
+  "icons": {
+    "16": "assets/Applix_logo.png",
+    "48": "assets/Applix_logo.png",
+    "128": "assets/Applix_logo.png"
+  },
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
     "https://api.openai.com/*",
@@ -10,7 +15,12 @@
     "https://api.anthropic.com/*"
   ],
   "action": {
-    "default_popup": "popup/popup.html"
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/Applix_logo.png",
+      "48": "assets/Applix_logo.png",
+      "128": "assets/Applix_logo.png"
+    }
   },
   "options_page": "options/options.html",
   "background": {
@@ -33,6 +43,7 @@
     {
       "resources": [
         "content/content.css",
+        "assets/Applix_logo.png",
         "libs/pdf.min.js",
         "libs/pdf.worker.min.js"
       ],
@@ -41,21 +52,21 @@
   ],
   "commands": {
     "_execute_action": {
-      "description": "Open ProfileFill popup"
+      "description": "Open Applix popup"
     },
     "toggle_widget": {
       "suggested_key": {
         "default": "Ctrl+Shift+F",
         "mac": "Command+Shift+F"
       },
-      "description": "Toggle ProfileFill floating widget"
+      "description": "Toggle Applix floating widget"
     },
     "open_popup": {
       "suggested_key": {
         "default": "Ctrl+Shift+P",
         "mac": "Command+Shift+P"
       },
-      "description": "Open ProfileFill popup"
+      "description": "Open Applix popup"
     }
   }
 }
