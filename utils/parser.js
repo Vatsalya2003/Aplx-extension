@@ -1,11 +1,11 @@
-// Resume parsing logic for Applix
+// Resume parsing logic for aplx
 // PDF: pdf.js (pdfjs-dist-legacy) via script tag; fallback to raw extraction. DOCX: mammoth.js in libs/.
 
 if (typeof window !== 'undefined' && window.pdfjsLib && typeof chrome !== 'undefined' && chrome.runtime?.getURL) {
   try {
     window.pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('libs/pdf.worker.min.js');
   } catch (e) {
-    console.warn('Applix: could not set PDF.js workerSrc', e);
+    console.warn('aplx: could not set PDF.js workerSrc', e);
   }
 }
 
@@ -52,7 +52,7 @@ export async function parseResumeFile(file) {
         usedAI = true;
       } catch (aiErr) {
         if (settings.localParsingFallback !== false) {
-          console.warn('Applix: AI parsing failed, using local fallback', aiErr);
+          console.warn('aplx: AI parsing failed, using local fallback', aiErr);
           parsed = parseResumeText(rawText);
         } else {
           throw aiErr;
@@ -147,13 +147,23 @@ async function extractTextFromPdf(arrayBuffer) {
         lastY = y;
       }
       if (lineText.trim()) pageTexts.push(lineText.trim());
+
+      try {
+        const annotations = await page.getAnnotations();
+        for (const annot of annotations) {
+          if (annot.subtype === 'Link' && annot.url) {
+            pageTexts.push(annot.url);
+          }
+        }
+      } catch (_) { /* annotation extraction is best-effort */ }
+
       if (pageTexts.length > 0 && pageNum < numPages) pageTexts.push('');
     }
 
     const text = pageTexts.join('\n');
     return text ? normalizeWhitespace(text) : extractTextFromPdfRaw(arrayBuffer);
   } catch (e) {
-    console.warn('Applix: pdf.js extraction failed, using raw fallback', e);
+    console.warn('aplx: pdf.js extraction failed, using raw fallback', e);
     return extractTextFromPdfRaw(arrayBuffer);
   }
 }
@@ -243,8 +253,13 @@ async function extractTextFromDocx(arrayBuffer) {
     throw new Error('Mammoth.js is not loaded');
   }
 
-  const { value } = await window.mammoth.extractRawText({ arrayBuffer });
-  return normalizeWhitespace(value || '');
+  const { value: html } = await window.mammoth.convertToHtml({ arrayBuffer });
+  const plainText = (html || '').replace(/<[^>]+>/g, ' ');
+  const hrefMatches = [...(html || '').matchAll(/href="([^"]+)"/gi)].map((m) => m[1]);
+  const combined = hrefMatches.length
+    ? plainText + '\n' + hrefMatches.join('\n')
+    : plainText;
+  return normalizeWhitespace(combined);
 }
 
 function normalizeWhitespace(text) {
@@ -393,6 +408,10 @@ function splitIntoSections(text) {
   };
 }
 
+function cleanUrlTrailing(url) {
+  return url.replace(/[),.|;:!?'"]+$/, '');
+}
+
 function extractPersonalInfo(text) {
   if (!text || typeof text !== 'string') {
     return { firstName: '', lastName: '', email: '', countryCode: '', phone: '', phoneType: '', address: '', city: '', state: '', location: '', country: '', pincode: '', linkedIn: '', github: '', portfolio: '', website: '' };
@@ -401,10 +420,42 @@ function extractPersonalInfo(text) {
   const firstLine = lines[0] || '';
 
   const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  const emailDomain = emailMatch ? emailMatch[0].split('@')[1].toLowerCase() : '';
   const phoneMatch = text.match(/(\+?\d[\d\s().-]{7,}\d)/i);
-  const linkedInMatch = text.match(/(https?:\/\/)?(www\.)?linkedin\.com\/[A-Za-z0-9\-_/]+/i);
+  const linkedInMatch = text.match(/(https?:\/\/)?(www\.)?linkedin\.com\/in\/[A-Za-z0-9\-_/]+/i)
+    || text.match(/(https?:\/\/)?(www\.)?linkedin\.com\/[A-Za-z0-9\-_/]+/i);
   const githubMatch = text.match(/(https?:\/\/)?(www\.)?github\.com\/[A-Za-z0-9\-_/]+/i);
-  const portfolioMatch = text.match(/(https?:\/\/)[^\s]+/i);
+
+  const allUrls = [...text.matchAll(/(https?:\/\/[^\s,|)]+)/gi)].map((m) => cleanUrlTrailing(m[1]));
+  const bareDomains = [...text.matchAll(/(?:^|\s)((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|org|net|io|dev|me|co|app|xyz|tech|design|page|site|blog|codes|works|live|sh|cc|info|biz)(?:\/[^\s,|)]*)?)/gi)]
+    .map((m) => cleanUrlTrailing(m[1]));
+
+  const knownDomains = new Set();
+  const linkedInUrl = linkedInMatch ? cleanUrlTrailing(linkedInMatch[0]) : '';
+  const githubUrl = githubMatch ? cleanUrlTrailing(githubMatch[0]) : '';
+  if (linkedInUrl) knownDomains.add(linkedInUrl.toLowerCase());
+  if (githubUrl) knownDomains.add(githubUrl.toLowerCase());
+
+  const candidateUrls = [...allUrls, ...bareDomains.map((d) => d)].filter((u) => {
+    const lower = u.toLowerCase();
+    if (knownDomains.has(lower)) return false;
+    if (lower.includes('linkedin.com') || lower.includes('github.com')) return false;
+    if (emailDomain && lower === emailDomain) return false;
+    const domainOnly = lower.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+    if (emailDomain && domainOnly === emailDomain) return false;
+    return true;
+  });
+
+  let portfolioUrl = '';
+  let websiteUrl = '';
+  for (const url of candidateUrls) {
+    if (!portfolioUrl) {
+      portfolioUrl = url;
+    } else if (!websiteUrl) {
+      websiteUrl = url;
+      break;
+    }
+  }
 
   const location = extractLocationFromText(text) || '';
 
@@ -430,10 +481,10 @@ function extractPersonalInfo(text) {
     location,
     country: '',
     pincode: '',
-    linkedIn: linkedInMatch ? normalizeUrl(linkedInMatch[0]) : '',
-    github: githubMatch ? normalizeUrl(githubMatch[0]) : '',
-    portfolio: portfolioMatch ? normalizeUrl(portfolioMatch[0]) : '',
-    website: '',
+    linkedIn: linkedInUrl ? normalizeUrl(linkedInUrl) : '',
+    github: githubUrl ? normalizeUrl(githubUrl) : '',
+    portfolio: portfolioUrl ? normalizeUrl(portfolioUrl) : '',
+    website: websiteUrl ? normalizeUrl(websiteUrl) : '',
   };
 }
 
@@ -683,7 +734,7 @@ function extractCertifications(sectionText) {
 }
 
 function normalizeUrl(url) {
-  let u = url.trim();
+  let u = url.trim().replace(/[),.|;:!?'"]+$/, '');
   if (!/^https?:\/\//i.test(u)) {
     u = 'https://' + u;
   }

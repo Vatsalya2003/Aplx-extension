@@ -1,4 +1,4 @@
-/* Applix — Options Page */
+/* aplx — Options Page */
 
 /* ── Top navigation bar ─────────────────────── */
 .options-nav {
@@ -588,7 +588,158 @@ textarea.pf-input {
 }
 
 /* ── Responsive ─────────────────────────────── */
+/* ── New Profile view ──────────────────────── */
+.options-new-profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--pf-spacing-md);
+}
+.options-new-profile-body {
+  display: flex;
+  gap: var(--pf-spacing-xl);
+  align-items: stretch;
+  margin-top: var(--pf-spacing-xl);
+}
+.options-np-card {
+  flex: 1;
+  background: var(--pf-color-bg-card);
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-lg);
+  padding: var(--pf-spacing-xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--pf-spacing-sm);
+}
+.options-np-card-secondary {
+  justify-content: center;
+}
+.options-np-card-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  border-radius: var(--pf-radius-xl);
+  background: var(--pf-color-bg-hover);
+  color: var(--pf-color-primary);
+  margin-bottom: var(--pf-spacing-xs);
+}
+.options-np-card-title {
+  font-size: var(--pf-font-size-lg);
+  font-weight: var(--pf-font-weight-semibold);
+  color: var(--pf-color-text);
+}
+.options-np-card-desc {
+  font-size: var(--pf-font-size-sm);
+  color: var(--pf-color-text-muted);
+  max-width: 320px;
+  line-height: 1.5;
+  margin-bottom: var(--pf-spacing-sm);
+}
+.options-np-dropzone {
+  width: 100%;
+  padding: var(--pf-spacing-xl) var(--pf-spacing-lg);
+  border: 2px dashed var(--pf-color-border-dotted);
+  border-radius: var(--pf-radius-lg);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.options-np-dropzone:hover,
+.options-np-dropzone.drag-over {
+  border-color: var(--pf-color-primary);
+  background: var(--pf-color-bg-hover);
+}
+.options-np-dropzone-loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+.options-np-dropzone-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--pf-font-size-sm);
+  font-weight: var(--pf-font-weight-medium);
+  color: var(--pf-color-text);
+}
+.options-np-dropzone-icon {
+  font-size: 18px;
+  color: var(--pf-color-primary);
+}
+.options-np-dropzone-hint {
+  font-size: var(--pf-font-size-xs);
+  color: var(--pf-color-text-muted);
+}
+.options-np-browse {
+  font-size: var(--pf-font-size-sm);
+  color: var(--pf-color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.options-np-browse:hover {
+  opacity: 0.8;
+}
+.options-np-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  padding: 0 4px;
+  color: var(--pf-color-text-muted);
+  font-size: var(--pf-font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.options-np-status {
+  width: 100%;
+  min-height: 24px;
+  margin-top: var(--pf-spacing-sm);
+  font-size: var(--pf-font-size-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.options-np-status-active {
+  color: var(--pf-color-primary);
+}
+.options-np-status-error {
+  color: var(--pf-color-danger, #ef4444);
+}
+.options-np-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--pf-color-border);
+  border-top-color: var(--pf-color-primary);
+  border-radius: 50%;
+  animation: np-spin 0.6s linear infinite;
+}
+@keyframes np-spin {
+  to { transform: rotate(360deg); }
+}
+
 @media (max-width: 720px) {
+  .options-new-profile-body {
+    flex-direction: column;
+  }
+  .options-np-divider {
+    writing-mode: horizontal-tb;
+    padding: var(--pf-spacing-sm) 0;
+  }
+  .options-new-profile-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
   .options-content {
     padding: var(--pf-spacing-xl) var(--pf-spacing-lg) 120px;
   }

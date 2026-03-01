@@ -1,4 +1,4 @@
-// Field mapping patterns and helpers for Applix form filling
+// Field mapping patterns and helpers for aplx form filling
 
 const FIELD_PATTERNS = {
   firstName: {
@@ -120,11 +120,11 @@ const FIELD_PATTERNS = {
     names: ['years_experience', 'experience_years', 'total_experience'],
   },
   visaSponsorship: {
-    labels: ['require visa sponsorship', 'visa sponsorship', 'sponsorship required'],
-    names: ['visa', 'visa_sponsorship', 'requires_visa'],
+    labels: ['require visa sponsorship', 'visa sponsorship', 'sponsorship required', 'without visa sponsorship', 'without sponsorship', 'eligible to work'],
+    names: ['visa', 'visa_sponsorship', 'requires_visa', 'sponsorship'],
   },
   workAuthorization: {
-    labels: ['work authorization', 'legally authorized', 'authorized to work'],
+    labels: ['work authorization', 'legally authorized', 'authorized to work', 'legally eligible', 'eligible to work in'],
     names: ['work_authorization', 'work_auth', 'work_status'],
   },
   willingToRelocate: {
@@ -132,20 +132,24 @@ const FIELD_PATTERNS = {
     names: ['willing_to_relocate', 'relocation', 'relocate'],
   },
   gender: {
-    labels: ['gender', 'gender identity'],
-    names: ['gender', 'gender_identity'],
+    labels: ['gender', 'gender identity', 'what is your gender', 'sex', 'self-identify gender'],
+    names: ['gender', 'gender_identity', 'sex', 'genderIdentity'],
   },
   ethnicity: {
-    labels: ['ethnicity', 'race'],
-    names: ['ethnicity', 'race'],
+    labels: ['ethnicity', 'race', 'race/ethnicity', 'ethnic background', 'racial identity', 'race ethnicity', 'self-identify race', 'hispanic or latino', 'demographic'],
+    names: ['ethnicity', 'race', 'raceEthnicity', 'race_ethnicity', 'ethnicBackground', 'ethnic_background'],
   },
   veteranStatus: {
-    labels: ['veteran', 'veteran status', 'protected veteran', 'i am not a veteran'],
-    names: ['veteran', 'veteran_status', 'veteran_status_id', 'protected_veteran'],
+    labels: ['veteran', 'veteran status', 'protected veteran', 'self-identify as a veteran', 'veteran self-identification', 'veteran classification', 'vet status'],
+    names: ['veteran', 'veteran_status', 'veteran_status_id', 'protected_veteran', 'veteranStatus', 'vetStatus', 'vet_status'],
   },
   disabilityStatus: {
-    labels: ['disability', 'disability status', 'i do not have a disability', 'i have a disability', 'have not had one in the past'],
-    names: ['disability', 'disability_status', 'disability_status_id', 'have_disability'],
+    labels: ['disability', 'disability status', 'have a disability', 'check one of the boxes below', 'please check one of the boxes', 'self-identify disability', 'disability self-identification', 'voluntary self-identification of disability', 'form cc-305'],
+    names: ['disability', 'disability_status', 'disability_status_id', 'have_disability', 'disabilityStatus', 'disStatus', 'dis_status'],
+  },
+  workplacePolicy: {
+    labels: ['agree to comply', 'workplace polic', 'drug free', 'drug & alcohol', 'tobacco', 'i agree to', 'background check', 'agree to the terms', 'code of conduct'],
+    names: ['workplace_policy', 'policy_agree', 'compliance', 'agree_comply', 'drug_free', 'background_check'],
   },
   pronouns: {
     labels: ['pronouns', 'preferred pronouns'],

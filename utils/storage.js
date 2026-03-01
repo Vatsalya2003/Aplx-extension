@@ -1,4 +1,4 @@
-// Applix storage utilities using chrome.storage.local
+// aplx storage utilities using chrome.storage.local
 
 const STORAGE_KEYS = {
   PROFILES: 'profiles',
@@ -92,7 +92,7 @@ export async function exportProfile(id) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `applix-${profile.name || 'profile'}.json`;
+  a.download = `aplx-${profile.name || 'profile'}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -186,7 +186,7 @@ export async function exportAllProfiles() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'applix-profiles.json';
+  a.download = 'aplx-profiles.json';
   document.body.appendChild(a);
   a.click();
   a.remove();

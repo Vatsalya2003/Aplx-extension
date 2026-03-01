@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="assets/Applix_logo.png" alt="Applix" width="80" height="80" style="border-radius: 16px;" />
+  <img src="assets/aplx_logo.png" alt="aplx" width="80" height="80" style="border-radius: 16px;" />
   
-  # Applix
+  # aplx
 
   **Auto-fill job applications instantly from your resume.**
   
@@ -16,7 +16,7 @@
 
 ## Features
 
-- **Resume Parsing** — Upload a PDF or DOCX resume and Applix extracts your information automatically
+- **Resume Parsing** — Upload a PDF or DOCX resume and aplx extracts your information automatically
 - **AI-Powered Parsing** *(optional)* — Connect your own OpenAI, Gemini, or Claude API key for more accurate parsing  
 - **One-Click Auto-Fill** — Fill job application forms on Greenhouse, Lever, Workday, Ashby, and more
 - **Multiple Profiles** — Create different profiles for different types of roles
@@ -34,7 +34,7 @@
 2. Open Chrome and navigate to `chrome://extensions/`
 3. Enable **Developer mode** (top-right toggle)
 4. Click **Load unpacked** and select the project folder
-5. Pin Applix from the extensions menu
+5. Pin aplx from the extensions menu
 
 ### Setup Libraries (for resume parsing)
 ```bash
@@ -50,8 +50,8 @@ This installs PDF.js and Mammoth.js for parsing PDF and DOCX resumes. If you ski
 
 | Action | How |
 |---|---|
-| Create profile from resume | Click Applix icon → **+ New Profile** → Upload PDF/DOCX |
-| Create profile manually | Click Applix icon → **+ New Profile** → **Create from scratch** |
+| Create profile from resume | Click aplx icon → **+ New Profile** → Upload PDF/DOCX |
+| Create profile manually | Click aplx icon → **+ New Profile** → **Create from scratch** |
 | Edit profiles | Click **Manage Profiles →** or right-click icon → **Options** |
 | Auto-fill a form | Visit a job application page → Click the **Fill** button → Select profile → **Auto-Fill Application** |
 | Toggle Fill widget | `Cmd+Shift+F` (Mac) / `Ctrl+Shift+F` (Windows) |
@@ -75,9 +75,9 @@ This installs PDF.js and Mammoth.js for parsing PDF and DOCX resumes. If you ski
 
 ## AI Parsing (Optional)
 
-Applix can use AI to parse your resume more accurately. This is optional — local parsing works without any API key.
+aplx can use AI to parse your resume more accurately. This is optional — local parsing works without any API key.
 
-1. Open Applix options page
+1. Open aplx options page
 2. Click the ⚙ Settings icon
 3. Enable "AI Resume Parsing"
 4. Choose a provider and enter your API key:
@@ -92,7 +92,7 @@ Your API key is stored locally and only sent to the provider you choose.
 ## Project Structure
 
 ```
-applix/
+aplx/
 ├── assets/              # Icons and logo
 ├── background/          # Service worker
 ├── content/             # Content script (form detection + fill widget)
@@ -109,3 +109,5 @@ applix/
     ├── storage.js       # Chrome storage utilities
     └── theme.js         # Dark/light theme
 ```
+
+Built by Vatsalya Dabhi

@@ -1,9 +1,9 @@
-// Background service worker for Applix
+// Background service worker for aplx
 
 import { getDefaultProfile } from '../utils/storage.js';
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Applix installed');
+  console.log('aplx installed');
 });
 
 // Handle keyboard shortcuts / commands

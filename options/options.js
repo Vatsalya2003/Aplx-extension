@@ -9,6 +9,7 @@ import {
 } from '../utils/storage.js';
 import { getSettings, saveSettings as persistSettings, getDefaultSettings } from '../utils/settings.js';
 import { testApiKey } from '../utils/aiParser.js';
+import { parseResumeFile } from '../utils/parser.js';
 import { initTheme, toggleTheme, getCurrentTheme } from '../utils/theme.js';
 
 const appEl = document.getElementById('app');
@@ -16,6 +17,7 @@ const appEl = document.getElementById('app');
 const VIEW = {
   LIST: 'list',
   EDITOR: 'editor',
+  NEW_PROFILE: 'new_profile',
 };
 
 const AI_PROVIDERS = [
@@ -51,7 +53,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
   } else if (mode === 'new') {
-    openEditor(createEmptyProfile());
+    state.view = VIEW.NEW_PROFILE;
+    render();
     return;
   }
 
@@ -71,13 +74,13 @@ function renderNav() {
   left.className = 'options-nav-left';
 
   const logo = document.createElement('img');
-  logo.src = chrome.runtime.getURL('assets/Applix_logo.png');
-  logo.alt = 'Applix';
+  logo.src = chrome.runtime.getURL('assets/aplx_logo.png');
+  logo.alt = 'aplx';
   logo.className = 'options-nav-logo';
 
   const brand = document.createElement('span');
   brand.className = 'options-nav-brand';
-  brand.textContent = 'Applix';
+  brand.textContent = 'aplx';
 
   left.appendChild(logo);
   left.appendChild(brand);
@@ -296,6 +299,8 @@ function render() {
 
   if (state.view === VIEW.LIST) {
     content.appendChild(renderListView());
+  } else if (state.view === VIEW.NEW_PROFILE) {
+    content.appendChild(renderNewProfileView());
   } else if (state.view === VIEW.EDITOR && state.editingProfile) {
     content.appendChild(renderEditorView());
   }
@@ -419,7 +424,8 @@ function renderListView() {
 
     if (target.id === 'new-profile-btn' || target.id === 'empty-new-profile-btn') {
       event.preventDefault();
-      openEditor(createEmptyProfile());
+      state.view = VIEW.NEW_PROFILE;
+      render();
       return;
     }
 
@@ -489,6 +495,135 @@ function renderListView() {
   });
 
   return container;
+}
+
+/* ─── New Profile view (upload resume or scratch) ─── */
+function renderNewProfileView() {
+  const container = document.createElement('div');
+  container.className = 'options-new-profile';
+
+  const header = document.createElement('div');
+  header.className = 'options-new-profile-header';
+  header.innerHTML = `
+    <h1 class="options-page-title">New Profile</h1>
+    <button class="pf-button pf-button-ghost" id="np-back-btn">\u2190 Back to Profiles</button>
+  `;
+  container.appendChild(header);
+  container.appendChild(createSeparator());
+
+  const body = document.createElement('div');
+  body.className = 'options-new-profile-body';
+
+  body.innerHTML = `
+    <div class="options-np-card">
+      <div class="options-np-card-icon">\u2191</div>
+      <div class="options-np-card-title">Upload Resume</div>
+      <div class="options-np-card-desc">Upload a PDF or DOCX resume and we'll extract your information automatically.</div>
+      <div class="options-np-dropzone" id="np-dropzone">
+        <div class="options-np-dropzone-text">
+          <span class="options-np-dropzone-icon">\u2191</span>
+          <span>Drop your resume here</span>
+        </div>
+        <div class="options-np-dropzone-hint">PDF or DOCX, up to 5 MB</div>
+        <div class="options-np-browse" id="np-browse-link">or browse files</div>
+        <input id="np-file-input" type="file" accept=".pdf,.docx" style="display:none" />
+      </div>
+      <div class="options-np-status" id="np-status"></div>
+    </div>
+    <div class="options-np-divider">
+      <span>or</span>
+    </div>
+    <div class="options-np-card options-np-card-secondary">
+      <div class="options-np-card-icon">\u270E</div>
+      <div class="options-np-card-title">Create from Scratch</div>
+      <div class="options-np-card-desc">Start with a blank profile and fill in your details manually.</div>
+      <button class="pf-button pf-button-ghost" id="np-scratch-btn">Start Blank Profile</button>
+    </div>
+  `;
+  container.appendChild(body);
+
+  setTimeout(() => wireNewProfileEvents(), 0);
+
+  return container;
+}
+
+function wireNewProfileEvents() {
+  const backBtn = document.getElementById('np-back-btn');
+  backBtn?.addEventListener('click', () => {
+    state.view = VIEW.LIST;
+    render();
+  });
+
+  const scratchBtn = document.getElementById('np-scratch-btn');
+  scratchBtn?.addEventListener('click', () => {
+    openEditor(createEmptyProfile());
+  });
+
+  const dropzone = document.getElementById('np-dropzone');
+  const fileInput = document.getElementById('np-file-input');
+  const browseLink = document.getElementById('np-browse-link');
+
+  dropzone?.addEventListener('click', (e) => {
+    if (e.target === fileInput) return;
+    fileInput?.click();
+  });
+
+  const handleFile = (file) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Please choose a file smaller than 5 MB.');
+      return;
+    }
+    startResumeParsing(file);
+  };
+
+  dropzone?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('drag-over');
+  });
+  dropzone?.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+  });
+  dropzone?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+    handleFile(e.dataTransfer?.files?.[0]);
+  });
+
+  fileInput?.addEventListener('change', () => {
+    handleFile(fileInput.files?.[0]);
+  });
+}
+
+async function startResumeParsing(file) {
+  const statusEl = document.getElementById('np-status');
+  const dropzone = document.getElementById('np-dropzone');
+  if (!statusEl) return;
+
+  dropzone?.classList.add('options-np-dropzone-loading');
+  const settings = await getSettings();
+  const usingAI = !!settings.aiParsingEnabled && !!String(settings.aiApiKey || '').trim();
+  statusEl.innerHTML = `
+    <div class="options-np-spinner"></div>
+    <span>Parsing <strong>${escapeHtml(file.name)}</strong>${usingAI ? ' with AI' : ''}\u2026</span>
+  `;
+  statusEl.className = 'options-np-status options-np-status-active';
+
+  try {
+    const { profile } = await parseResumeFile(file);
+    if (!state.profiles.some((p) => p.isDefault)) {
+      profile.isDefault = true;
+    }
+    showToast('Resume parsed — review and save your profile');
+    openEditor(profile);
+  } catch (e) {
+    console.error('aplx: resume parse error', e);
+    dropzone?.classList.remove('options-np-dropzone-loading');
+    statusEl.textContent =
+      (e && (e.message || e.toString())) || 'Could not read this file. Please try another resume.';
+    statusEl.className = 'options-np-status options-np-status-error';
+  }
 }
 
 function renderEditorView() {
@@ -698,17 +833,16 @@ function renderEditorView() {
         ${renderLabeledInput('Ethnicity (optional)', 'app-ethnicity', profile.applicationDefaults.ethnicity)}
         ${renderSelect('Veteran Status (optional)', 'app-veteranStatus', profile.applicationDefaults.veteranStatus, [
           { value: '', label: 'Select' },
+          { value: 'I identify as one or more of the classifications of protected veterans', label: 'I identify as one or more of the classifications of protected veterans' },
+          { value: 'I identify as a veteran, just not a protected veteran', label: 'I identify as a veteran, just not a protected veteran' },
           { value: 'I am not a veteran', label: 'I am not a veteran' },
-          { value: 'I am a protected veteran', label: 'I am a protected veteran' },
-          { value: 'Prefer not to say', label: 'Prefer not to say' },
+          { value: 'I do not want to answer', label: 'I do not want to answer' },
         ])}
         ${renderSelect('Disability Status (optional)', 'app-disabilityStatus', profile.applicationDefaults.disabilityStatus, [
           { value: '', label: 'Select' },
+          { value: 'Yes, I have a disability, or have had one in the past', label: 'Yes, I have a disability, or have had one in the past' },
           { value: 'No, I do not have a disability and have not had one in the past', label: 'No, I do not have a disability and have not had one in the past' },
-          { value: 'I do not have a disability', label: 'I do not have a disability' },
-          { value: 'I had a disability in the past', label: 'I had a disability in the past' },
-          { value: 'I have a disability', label: 'I have a disability' },
-          { value: 'Prefer not to say', label: 'Prefer not to say' },
+          { value: 'I do not want to answer', label: 'I do not want to answer' },
         ])}
         ${renderLabeledInput('Pronouns', 'app-pronouns', profile.applicationDefaults.pronouns)}
       </div>

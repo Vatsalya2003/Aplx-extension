@@ -1,4 +1,4 @@
-// Generic form filling engine for Applix
+// Generic form filling engine for aplx
 // Expects window.ProfileFillFieldMapper to be available (from utils/fieldMapper.js)
 
 (function () {
@@ -9,6 +9,94 @@
    * @returns {Promise<string>} summary
    */
   var PHONE_KEYS = ['phone', 'phoneNumber', 'countryCode', 'countryPhoneCode', 'phoneType', 'phoneDeviceType', 'phoneExtension'];
+
+  var EEO_VALUE_MAPS = {
+    veteranStatus: {
+      'I am not a veteran': [
+        'I am not a veteran',
+        'I am not a protected veteran',
+        'I am Not a Protected Veteran',
+        'Not a protected veteran',
+        'Not a veteran',
+        'No',
+      ],
+      'I identify as one or more of the classifications of protected veterans': [
+        'I identify as one or more of the classifications of protected veterans',
+        'I identify as one or more of the classifications of a protected veteran',
+        'I identify as a protected veteran',
+        'I am a protected veteran',
+        'Protected veteran',
+        'Yes',
+      ],
+      'I identify as a veteran, just not a protected veteran': [
+        'I identify as a veteran, just not a protected veteran',
+        'I am a veteran but not a protected veteran',
+        'Veteran, not protected',
+      ],
+      'I do not want to answer': [
+        'I do not want to answer',
+        'I don\'t wish to answer',
+        'I do not wish to answer',
+        'Prefer not to say',
+        'Decline to self-identify',
+        'Decline',
+        'Choose not to disclose',
+      ],
+    },
+    disabilityStatus: {
+      'Yes, I have a disability, or have had one in the past': [
+        'Yes, I have a disability, or have had one in the past',
+        'Yes, I have a disability (or previously had a disability)',
+        'Yes, I Have A Disability, Or Have A History/Record Of Having A Disability',
+        'I have a disability',
+        'Yes, I have a disability',
+        'Yes',
+      ],
+      'No, I do not have a disability and have not had one in the past': [
+        'No, I do not have a disability and have not had one in the past',
+        'No, I Don\'t Have A Disability, Or A History/Record Of Having A Disability',
+        'No, I don\'t have a disability',
+        'I do not have a disability',
+        'No',
+      ],
+      'I do not want to answer': [
+        'I do not want to answer',
+        'I don\'t wish to answer',
+        'I do not wish to answer',
+        'Prefer not to say',
+        'Decline to self-identify',
+        'Decline To Self Identify',
+        'Decline',
+      ],
+    },
+    gender: {
+      'Male': ['Male', 'Man', 'M'],
+      'Female': ['Female', 'Woman', 'F'],
+      'Non-binary': ['Non-binary', 'Non-Binary', 'Nonbinary', 'Genderqueer'],
+      'Other': ['Other', 'Self-describe', 'Not listed'],
+      'Prefer not to say': ['Prefer not to say', 'Decline to self-identify', 'Decline'],
+    },
+  };
+
+  var EEO_KEYS = ['veteranStatus', 'disabilityStatus', 'gender', 'ethnicity'];
+
+  function getEEOValues(key, profileValue) {
+    if (!profileValue || !EEO_VALUE_MAPS[key]) return [profileValue];
+
+    var map = EEO_VALUE_MAPS[key];
+    for (var category in map) {
+      if (map.hasOwnProperty(category)) {
+        var variations = map[category];
+        var allValues = [category].concat(variations);
+        for (var i = 0; i < allValues.length; i++) {
+          if (allValues[i].toLowerCase().trim() === profileValue.toLowerCase().trim()) {
+            return allValues;
+          }
+        }
+      }
+    }
+    return [profileValue];
+  }
 
   async function fill(profile, options = {}) {
     const root = document;
@@ -23,6 +111,7 @@
     let totalConsidered = 0;
     let filledCount = 0;
     const unmatched = [];
+    const filledEls = new Set();
 
     // Fill only the first phone group (device type + country code + number)
     filledCount += await fillPhoneSection(profile);
@@ -42,6 +131,7 @@
           const success = await tryFillFileInput(field.el, profile);
           if (success) {
             filledCount++;
+            filledEls.add(field.el);
             highlightSuccess(field.el);
           } else {
             unmatched.push(field);
@@ -57,6 +147,7 @@
         const ok = setTextLike(field.el, content);
         if (ok) {
           filledCount++;
+          filledEls.add(field.el);
           highlightSuccess(field.el);
         }
         continue;
@@ -66,7 +157,7 @@
         const stateValue = valueMap.state || '';
         if (stateValue) {
           const ok = await fillDropdownElement(field.el, [stateValue]);
-          if (ok) { filledCount++; highlightSuccess(field.el); }
+          if (ok) { filledCount++; filledEls.add(field.el); highlightSuccess(field.el); }
           else unmatched.push(field);
         } else {
           unmatched.push(field);
@@ -104,7 +195,7 @@
           }
           possibleCountries.push(countryValue);
           const ok = await fillDropdownElement(field.el, possibleCountries);
-          if (ok) { filledCount++; highlightSuccess(field.el); }
+          if (ok) { filledCount++; filledEls.add(field.el); highlightSuccess(field.el); }
           else unmatched.push(field);
         } else {
           unmatched.push(field);
@@ -112,15 +203,74 @@
         continue;
       }
 
+      if (key === 'visaSponsorship') {
+        const rawValue = valueMap.visaSponsorship;
+        if (rawValue) {
+          const context = (field.desc.contextText || field.desc.labelText || '').toLowerCase();
+          const isInverted = context.includes('without visa sponsorship') ||
+            context.includes('without sponsorship') ||
+            (context.includes('eligible to work') && context.includes('sponsorship'));
+          let fillValue = rawValue;
+          if (isInverted) {
+            const wants = matchBoolean(rawValue);
+            if (wants === true) fillValue = 'No';
+            else if (wants === false) fillValue = 'Yes';
+          }
+          const ok = fillField(field.el, key, fillValue, profile, options);
+          if (ok) { filledCount++; filledEls.add(field.el); highlightSuccess(field.el); }
+          else unmatched.push(field);
+        } else {
+          unmatched.push(field);
+        }
+        continue;
+      }
+
+      if (key === 'workplacePolicy') {
+        const ok = fillField(field.el, key, 'Yes', profile, options);
+        if (ok) { filledCount++; filledEls.add(field.el); highlightSuccess(field.el); }
+        else unmatched.push(field);
+        continue;
+      }
+
+      if (key === 'veteranStatus' || key === 'disabilityStatus') {
+        const storedValue = valueMap[key] || '';
+        if (!storedValue) { continue; }
+        const tag = field.el.tagName.toLowerCase();
+        const type = (field.el.getAttribute('type') || '').toLowerCase();
+        const role = (field.el.getAttribute('role') || '').toLowerCase();
+        const hasPopup = field.el.hasAttribute('aria-haspopup');
+        const valuesToTry = getEEOValues(key, storedValue);
+        let filled = false;
+        if (tag === 'select') {
+          for (var vi = 0; vi < valuesToTry.length && !filled; vi++) {
+            filled = setSelectValue(field.el, valuesToTry[vi]);
+          }
+        } else if (type === 'radio' || type === 'checkbox') {
+          for (var vi = 0; vi < valuesToTry.length && !filled; vi++) {
+            filled = fillChoiceByLabel(field.el, valuesToTry[vi]);
+          }
+        } else if (role === 'combobox' || role === 'listbox' || hasPopup ||
+                   tag === 'button' || hasNearbyDropdownIndicator(field.el)) {
+          filled = await fillDropdownElement(field.el, valuesToTry);
+        } else {
+          for (var vi = 0; vi < valuesToTry.length && !filled; vi++) {
+            filled = fillField(field.el, key, valuesToTry[vi], profile, options);
+          }
+        }
+        if (filled) { filledCount++; filledEls.add(field.el); highlightSuccess(field.el); }
+        else unmatched.push(field);
+        continue;
+      }
+
       const value = valueMap[key] != null ? valueMap[key] : (key === 'postalCode' ? valueMap.pincode : null);
       if (value == null || value === '') {
-        unmatched.push(field);
         continue;
       }
 
       const success = fillField(field.el, key, value, profile, options);
       if (success) {
         filledCount++;
+        filledEls.add(field.el);
         highlightSuccess(field.el);
       } else {
         unmatched.push(field);
@@ -129,7 +279,13 @@
 
     // Fallback: scan the entire page for state/country dropdowns that may have
     // been missed (Workday uses custom button comboboxes the main loop can miss)
-    filledCount += await fillMissedDropdownFields(valueMap, fields);
+    filledCount += await fillMissedDropdownFields(valueMap, filledEls);
+
+    // Fallback: scan for disability/veteran checkboxes missed by the main loop
+    filledCount += fillMissedCheckboxFields(valueMap, filledEls);
+
+    // Fallback: fill signature date fields on EEO / disability / veteran forms
+    filledCount += fillSignatureDateFields(filledEls);
 
     markUnmatched(unmatched);
 
@@ -137,20 +293,24 @@
     return summary;
   }
 
-  async function fillMissedDropdownFields(valueMap, alreadyProcessed) {
+  async function fillMissedDropdownFields(valueMap, filledEls) {
     var filled = 0;
-    var processedEls = new Set(alreadyProcessed.map(function(f) { return f.el; }));
+    var processedEls = filledEls;
 
     var dropdownConfigs = [
       { value: valueMap.state || '', keywords: ['state', 'state/province', 'province'] },
       { value: valueMap.country || '', keywords: ['country', 'country/region'] },
+      { value: valueMap.visaSponsorship || '', keywords: ['visa sponsorship', 'sponsorship', 'eligible to work'] },
+      { value: valueMap.workAuthorization || '', keywords: ['work authorization', 'authorized to work', 'legally authorized'] },
+      { value: 'Yes', keywords: ['agree to comply', 'workplace polic', 'drug free', 'tobacco', 'background check'] },
+      { value: valueMap.veteranStatus || '', keywords: ['veteran', 'veteran status', 'protected veteran'], eeoKey: 'veteranStatus' },
+      { value: valueMap.disabilityStatus || '', keywords: ['disability', 'disability status'], eeoKey: 'disabilityStatus' },
     ];
 
     for (var c = 0; c < dropdownConfigs.length; c++) {
       var config = dropdownConfigs[c];
       if (!config.value) continue;
 
-      // Search for any dropdown-like element labeled with the keywords
       var candidates = Array.from(document.querySelectorAll(
         'select, [role="combobox"], button[aria-haspopup="listbox"], button[aria-haspopup="true"]'
       ));
@@ -168,15 +328,15 @@
         var matches = config.keywords.some(function(kw) { return allText.includes(kw); });
         if (!matches) continue;
 
-        // Check if already filled (has a value that's not a placeholder)
         var currentVal = (el.value || el.textContent || '').trim().toLowerCase();
         if (currentVal && currentVal !== 'select one' && currentVal !== 'select' &&
             currentVal !== '--' && currentVal !== '' && currentVal !== 'choose') {
           continue;
         }
 
-        console.log('Applix fallback: Found missed dropdown for "' + config.keywords[0] + '":', el.tagName, label);
-        var ok = await fillDropdownElement(el, [config.value]);
+        console.log('aplx fallback: Found missed dropdown for "' + config.keywords[0] + '":', el.tagName, label);
+        var tryValues = config.eeoKey ? getEEOValues(config.eeoKey, config.value) : [config.value];
+        var ok = await fillDropdownElement(el, tryValues);
         if (ok) {
           highlightSuccess(el);
           filled++;
@@ -184,6 +344,137 @@
           break;
         }
       }
+    }
+
+    return filled;
+  }
+
+  function fillMissedCheckboxFields(valueMap, filledEls) {
+    var processedEls = filledEls;
+    var filled = 0;
+
+    var checkboxConfigs = [
+      { value: valueMap.disabilityStatus || '', sectionKeywords: ['disability', 'check one of the boxes'], eeoKey: 'disabilityStatus' },
+      { value: valueMap.veteranStatus || '', sectionKeywords: ['veteran', 'self-identify'], eeoKey: 'veteranStatus' },
+    ];
+
+    for (var c = 0; c < checkboxConfigs.length; c++) {
+      var config = checkboxConfigs[c];
+      if (!config.value) continue;
+
+      var valuesToTry = getEEOValues(config.eeoKey, config.value);
+      var allCheckboxes = Array.from(document.querySelectorAll('input[type="checkbox"], input[type="radio"]'));
+
+      var best = null;
+      var bestScore = 0;
+
+      for (var vi = 0; vi < valuesToTry.length; vi++) {
+        var normTarget = normalizeString(valuesToTry[vi]);
+        if (!normTarget) continue;
+
+        for (var i = 0; i < allCheckboxes.length; i++) {
+          var el = allCheckboxes[i];
+          if (processedEls.has(el)) continue;
+          if (el.checked) continue;
+
+          var label = normalizeString(getLabelText(el));
+          var context = normalizeString(getContextText(el));
+          var sectionMatch = config.sectionKeywords.some(function(kw) { return context.includes(kw); });
+          if (!sectionMatch) continue;
+
+          var score = 0;
+          if (label === normTarget) score = 100;
+          else if (label.startsWith(normTarget) || normTarget.startsWith(label)) score = 80;
+          else if (label && label.includes(normTarget) && normTarget.length > 5) score = 70;
+          else if (label && normTarget.includes(label) && label.length > 5) score = 60;
+          else {
+            var targetWords = normTarget.split(/\s+/).filter(function(w) { return w.length > 2; });
+            var labelWords = label.split(/\s+/).filter(function(w) { return w.length > 2; });
+            var matchingWords = 0;
+            for (var tw = 0; tw < targetWords.length; tw++) {
+              for (var lw = 0; lw < labelWords.length; lw++) {
+                if (targetWords[tw] === labelWords[lw] ||
+                    labelWords[lw].includes(targetWords[tw]) ||
+                    targetWords[tw].includes(labelWords[lw])) {
+                  matchingWords++;
+                  break;
+                }
+              }
+            }
+            if (targetWords.length > 0 && matchingWords > 0) {
+              score = Math.round((matchingWords / Math.max(targetWords.length, 1)) * 45);
+            }
+          }
+
+          if (score > bestScore) { bestScore = score; best = el; }
+        }
+      }
+
+      if (best && bestScore >= 20) {
+        best.checked = true;
+        dispatchInputEvents(best);
+        highlightSuccess(best);
+        processedEls.add(best);
+        filled++;
+      }
+    }
+
+    return filled;
+  }
+
+  function fillSignatureDateFields(filledEls) {
+    var processedEls = filledEls;
+    var filled = 0;
+
+    var pageText = (document.body?.innerText || '').toLowerCase();
+    var isEEOPage = pageText.includes('disability') || pageText.includes('veteran') ||
+      pageText.includes('self-identification') || pageText.includes('eeo') ||
+      pageText.includes('equal employment') || pageText.includes('cc-305');
+    if (!isEEOPage) return 0;
+
+    var allInputs = Array.from(document.querySelectorAll('input'));
+    for (var i = 0; i < allInputs.length; i++) {
+      var el = allInputs[i];
+      if (processedEls.has(el)) continue;
+
+      var type = (el.getAttribute('type') || '').toLowerCase();
+      if (type !== 'date' && type !== 'text' && type !== '') continue;
+
+      var label = normalizeString(getLabelText(el));
+      var name = normalizeString(el.getAttribute('name') || el.id || '');
+      var placeholder = normalizeString(el.getAttribute('placeholder') || '');
+
+      var isDateField = (label === 'date' || label === 'today\'s date' || label === 'signature date' ||
+        name.includes('date') || name.includes('signature'));
+      var isStartDate = label.includes('start') || label.includes('available') || label.includes('earliest') ||
+        name.includes('start') || name.includes('available');
+      if (!isDateField || isStartDate) continue;
+
+      if (el.value && el.value.trim()) continue;
+
+      var now = new Date();
+      var dateValue;
+      if (type === 'date') {
+        dateValue = now.getFullYear() + '-' +
+          String(now.getMonth() + 1).padStart(2, '0') + '-' +
+          String(now.getDate()).padStart(2, '0');
+      } else {
+        dateValue = String(now.getMonth() + 1).padStart(2, '0') + '/' +
+          String(now.getDate()).padStart(2, '0') + '/' +
+          now.getFullYear();
+      }
+
+      var proto = window.HTMLInputElement.prototype;
+      var desc = Object.getOwnPropertyDescriptor(proto, 'value');
+      if (desc && typeof desc.set === 'function') {
+        desc.set.call(el, dateValue);
+      } else {
+        el.value = dateValue;
+      }
+      dispatchInputEvents(el);
+      highlightSuccess(el);
+      processedEls.add(el);
+      filled++;
     }
 
     return filled;
@@ -468,7 +759,7 @@
     var isInputCombobox = (tagName === 'input') && (role === 'combobox' || ariaAuto === 'list' || ariaAuto === 'both');
     var isButtonCombobox = (tagName === 'button') && (role === 'combobox' || hasPopup);
 
-    console.log('Applix fillDropdown:', {
+    console.log('aplx fillDropdown:', {
       tag: tagName, role: role, ariaAuto: ariaAuto, hasPopup: hasPopup,
       isNativeSelect: isNativeSelect, isInputCombobox: isInputCombobox,
       isButtonCombobox: isButtonCombobox,
@@ -501,10 +792,10 @@
       if (bestMatch) {
         element.value = bestMatch.value;
         dispatchInputEvents(element);
-        console.log('Applix: Filled native select with:', bestMatch.textContent);
+        console.log('aplx: Filled native select with:', bestMatch.textContent);
         return true;
       }
-      console.log('Applix: No matching option in native select. Options:', options.map(function(o) { return o.textContent; }));
+      console.log('aplx: No matching option in native select. Options:', options.map(function(o) { return o.textContent; }));
       return false;
     }
 
@@ -525,7 +816,7 @@
     if (parent) {
       var nearbyCombo = parent.querySelector('button[aria-haspopup], [role="combobox"], select');
       if (nearbyCombo && nearbyCombo !== element) {
-        console.log('Applix: Found nearby dropdown for', getLabelText(element), '→ redirecting');
+        console.log('aplx: Found nearby dropdown for', getLabelText(element), '→ redirecting');
         return await fillDropdownElement(nearbyCombo, possibleValues);
       }
     }
@@ -583,7 +874,7 @@
       } catch (e) { /* skip */ }
     }
 
-    console.log('Applix: Button combobox found', optionElements.length, 'options');
+    console.log('aplx: Button combobox found', optionElements.length, 'options');
 
     if (optionElements.length > 0) {
       var bestOption = null;
@@ -603,15 +894,15 @@
         bestOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
         bestOption.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
         bestOption.click();
-        console.log('Applix: Selected option:', bestOption.textContent?.trim());
+        console.log('aplx: Selected option:', bestOption.textContent?.trim());
         await sleep(100);
       } else {
-        console.log('Applix: No matching option found for values:', possibleValues);
+        console.log('aplx: No matching option found for values:', possibleValues);
         // Close the dropdown
         buttonElement.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }));
       }
     } else {
-      console.log('Applix: No dropdown options appeared after click');
+      console.log('aplx: No dropdown options appeared after click');
       buttonElement.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }));
     }
   }
@@ -772,7 +1063,7 @@
       }
     }
 
-    console.log('Applix phone detection:', {
+    console.log('aplx phone detection:', {
       deviceType: phoneDeviceTypeField ? getLabelText(phoneDeviceTypeField) : 'NOT FOUND',
       countryCode: countryCodeField ? getLabelText(countryCodeField) : 'NOT FOUND',
       phoneNumber: phoneNumberField ? getLabelText(phoneNumberField) : 'NOT FOUND',
@@ -802,7 +1093,7 @@
             highlightSuccess(phoneDeviceTypeField);
             filled++;
             matched = true;
-            console.log('Applix: Filled phone device type (select) with:', opt.text);
+            console.log('aplx: Filled phone device type (select) with:', opt.text);
             break;
           }
         }
@@ -818,7 +1109,7 @@
             dispatchInputEvents(phoneDeviceTypeField);
             highlightSuccess(phoneDeviceTypeField);
             filled++;
-            console.log('Applix: Filled phone device type (select fallback) with:', firstValid.text);
+            console.log('aplx: Filled phone device type (select fallback) with:', firstValid.text);
           }
         }
       } else {
@@ -827,7 +1118,7 @@
         if (ok) {
           highlightSuccess(phoneDeviceTypeField);
           filled++;
-          console.log('Applix: Filled phone device type (dropdown) with preferred type');
+          console.log('aplx: Filled phone device type (dropdown) with preferred type');
         }
       }
     }
@@ -873,7 +1164,7 @@
         highlightSuccess(countryCodeField);
         filled++;
       }
-      console.log('Applix: Filled country code');
+      console.log('aplx: Filled country code');
     }
 
     // === FILL PHONE NUMBER (digits only, country code stripped) ===
@@ -893,11 +1184,11 @@
       setNativeValue(phoneNumberField, cleanPhone);
       highlightSuccess(phoneNumberField);
       filled++;
-      console.log('Applix: Filled phone number with:', cleanPhone);
+      console.log('aplx: Filled phone number with:', cleanPhone);
     }
 
     if (phoneExtensionField) {
-      console.log('Applix: Skipped phone extension field');
+      console.log('aplx: Skipped phone extension field');
     }
 
     return filled;
@@ -939,6 +1230,7 @@
       visaSponsorship: app.visaSponsorship || '',
       workAuthorization: app.workAuthorization || '',
       willingToRelocate: app.willingToRelocate || '',
+      workplacePolicy: 'Yes',
       gender: app.gender || '',
       ethnicity: app.ethnicity || '',
       veteranStatus: app.veteranStatus || '',
@@ -952,10 +1244,24 @@
     const type = (el.getAttribute('type') || '').toLowerCase();
 
     if (tag === 'select') {
+      if (EEO_KEYS.indexOf(key) >= 0) {
+        var valuesToTry = getEEOValues(key, value);
+        for (var i = 0; i < valuesToTry.length; i++) {
+          if (setSelectValue(el, valuesToTry[i])) return true;
+        }
+        return false;
+      }
       return setSelectValue(el, value);
     }
 
     if (type === 'radio' || type === 'checkbox') {
+      if (EEO_KEYS.indexOf(key) >= 0) {
+        var valuesToTry = getEEOValues(key, value);
+        for (var i = 0; i < valuesToTry.length; i++) {
+          if (setChoiceInput(el, key, valuesToTry[i])) return true;
+        }
+        return false;
+      }
       return setChoiceInput(el, key, value);
     }
 
@@ -1026,23 +1332,62 @@
   }
 
   function setSelectValue(selectEl, targetValue) {
-    const options = Array.from(selectEl.options);
+    var options = Array.from(selectEl.options);
     if (!options.length) return false;
-    const normTarget = normalizeString(targetValue);
 
-    let best = null;
-    let bestScore = 0;
+    var normTarget = normalizeString(targetValue);
+    if (!normTarget) return false;
 
-    for (const opt of options) {
-      const text = normalizeString(opt.textContent || '');
-      const value = normalizeString(opt.value || '');
-      let score = 0;
+    var best = null;
+    var bestScore = 0;
 
-      if (!normTarget) continue;
+    for (var i = 0; i < options.length; i++) {
+      var opt = options[i];
+      var text = normalizeString(opt.textContent || '');
+      var value = normalizeString(opt.value || '');
 
-      if (text === normTarget || value === normTarget) score = 10;
-      else if (text.includes(normTarget) || normTarget.includes(text)) score = 7;
-      else if (value && normTarget.includes(value)) score = 5;
+      if (!value || value === 'select one' || value === 'select' ||
+          value === '--' || value === '0' || value === 'null' ||
+          text === 'select one' || text === 'select' || text === '--' ||
+          text === 'please select' || text === 'choose one') {
+        continue;
+      }
+
+      var score = 0;
+
+      if (text === normTarget || value === normTarget) {
+        score = 100;
+      } else if (text.startsWith(normTarget) || normTarget.startsWith(text)) {
+        score = 80;
+      } else if (text.includes(normTarget)) {
+        score = 70;
+      } else if (normTarget.includes(text) && text.length > 3) {
+        score = 60;
+      } else if (value === normTarget) {
+        score = 90;
+      } else if (value.includes(normTarget) || normTarget.includes(value)) {
+        score = 50;
+      } else {
+        var targetWords = normTarget.split(/\s+/).filter(function(w) { return w.length > 2; });
+        var textWords = text.split(/\s+/).filter(function(w) { return w.length > 2; });
+        var matchingWords = 0;
+
+        for (var tw = 0; tw < targetWords.length; tw++) {
+          for (var ow = 0; ow < textWords.length; ow++) {
+            if (targetWords[tw] === textWords[ow] ||
+                textWords[ow].includes(targetWords[tw]) ||
+                targetWords[tw].includes(textWords[ow])) {
+              matchingWords++;
+              break;
+            }
+          }
+        }
+
+        if (targetWords.length > 0 && matchingWords > 0) {
+          var wordMatchPercent = matchingWords / Math.max(targetWords.length, 1);
+          score = Math.round(wordMatchPercent * 45);
+        }
+      }
 
       if (score > bestScore) {
         bestScore = score;
@@ -1050,15 +1395,13 @@
       }
     }
 
-    if (!best) return false;
+    if (!best || bestScore < 20) return false;
 
-    const prev = selectEl.value;
+    var prev = selectEl.value;
     selectEl.value = best.value;
     if (selectEl.value !== prev) {
-      const ev = new Event('change', { bubbles: true });
-      selectEl.dispatchEvent(ev);
+      dispatchInputEvents(selectEl);
     }
-
     return true;
   }
 
@@ -1106,7 +1449,7 @@
 
     if (!best) {
       // For some boolean fields (yes/no) fall back to any radio with yes/no
-      if (['visaSponsorship', 'willingToRelocate'].includes(key)) {
+      if (['visaSponsorship', 'willingToRelocate', 'workAuthorization', 'workplacePolicy'].includes(key)) {
         for (const el of group) {
           const label = normalizeString(getLabelText(el));
           if (!label) continue;
@@ -1126,6 +1469,71 @@
 
     if (!best) return false;
 
+    if (!best.checked) {
+      best.checked = true;
+      dispatchInputEvents(best);
+    }
+    return true;
+  }
+
+  function fillChoiceByLabel(inputEl, targetValue) {
+    const type = (inputEl.getAttribute('type') || '').toLowerCase();
+    const name = inputEl.name;
+    const normTarget = normalizeString(targetValue);
+    if (!normTarget) return false;
+
+    let candidates;
+    if (name) {
+      candidates = Array.from(
+        document.querySelectorAll(`input[type="${type}"][name="${CSS.escape(name)}"]`)
+      );
+    } else {
+      let container = inputEl.closest('fieldset, [role="group"], div, section') || inputEl.parentElement;
+      candidates = container
+        ? Array.from(container.querySelectorAll(`input[type="${type}"]`))
+        : [inputEl];
+
+      var walkAttempts = 0;
+      while (candidates.length <= 1 && container && walkAttempts < 5) {
+        container = container.parentElement;
+        if (!container) break;
+        candidates = Array.from(container.querySelectorAll(`input[type="${type}"]`));
+        walkAttempts++;
+      }
+    }
+
+    let best = null;
+    let bestScore = 0;
+    for (const el of candidates) {
+      const label = normalizeString(getLabelText(el));
+      const value = normalizeString(el.value || '');
+      let score = 0;
+      if (label === normTarget || value === normTarget) score = 100;
+      else if (label.startsWith(normTarget) || normTarget.startsWith(label)) score = 80;
+      else if (label && label.includes(normTarget) && normTarget.length > 5) score = 70;
+      else if (label && normTarget.includes(label) && label.length > 5) score = 60;
+      else {
+        const targetWords = normTarget.split(/\s+/).filter(function(w) { return w.length > 2; });
+        const labelWords = label.split(/\s+/).filter(function(w) { return w.length > 2; });
+        var matchingWords = 0;
+        for (var tw = 0; tw < targetWords.length; tw++) {
+          for (var lw = 0; lw < labelWords.length; lw++) {
+            if (targetWords[tw] === labelWords[lw] ||
+                labelWords[lw].includes(targetWords[tw]) ||
+                targetWords[tw].includes(labelWords[lw])) {
+              matchingWords++;
+              break;
+            }
+          }
+        }
+        if (targetWords.length > 0 && matchingWords > 0) {
+          score = Math.round((matchingWords / Math.max(targetWords.length, 1)) * 45);
+        }
+      }
+      if (score > bestScore) { bestScore = score; best = el; }
+    }
+
+    if (!best || bestScore < 20) return false;
     if (!best.checked) {
       best.checked = true;
       dispatchInputEvents(best);

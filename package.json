@@ -1,5 +1,5 @@
 {
-  "name": "profilefill-extension",
+  "name": "aplx",
   "version": "1.0.0",
   "description": "Chrome extension (Manifest V3) that lets you create profiles from your resume and auto-fill job application forms. All data stays in your browser—no backend, no uploads.",
   "main": "index.js",

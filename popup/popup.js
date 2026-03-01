@@ -76,8 +76,8 @@ function renderHeader() {
   left.className = 'popup-header-left';
   left.innerHTML = `
     <div class="popup-title-row">
-      <img src="${chrome.runtime.getURL('assets/Applix_logo.png')}" alt="Applix" class="popup-logo" />
-      <span class="popup-title">Applix</span>
+      <img src="${chrome.runtime.getURL('assets/aplx_logo.png')}" alt="aplx" class="popup-logo" />
+      <span class="popup-title">aplx</span>
     </div>
     <div class="popup-subtitle">Profiles live only in your browser.</div>
   `;
@@ -352,7 +352,7 @@ async function startParsing(file) {
       window.close();
     }, 200);
   } catch (e) {
-    console.error('Applix parse error:', e);
+    console.error('aplx parse error:', e);
     state.parsingMessage =
       (e && (e.message || e.toString())) ||
       'Could not read this file. Please try another resume or create from scratch.';
