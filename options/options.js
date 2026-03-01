@@ -9,6 +9,7 @@ import {
 } from '../utils/storage.js';
 import { getSettings, saveSettings as persistSettings, getDefaultSettings } from '../utils/settings.js';
 import { testApiKey } from '../utils/aiParser.js';
+import { initTheme, toggleTheme, getCurrentTheme } from '../utils/theme.js';
 
 const appEl = document.getElementById('app');
 
@@ -30,12 +31,12 @@ let state = {
   sortBy: 'recent',
   editingProfile: null,
   settings: null,
-  settingsOpen: false,
   settingsDirty: null,
   testApiResult: null,
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
   await loadProfiles();
   state.settings = await getSettings();
   state.settingsDirty = { ...state.settings };
@@ -61,163 +62,261 @@ async function loadProfiles() {
   state.profiles = await getAllProfiles();
 }
 
-function renderSettingsCard() {
-  const s = state.settingsDirty ?? state.settings ?? getDefaultSettings();
-  const open = state.settingsOpen;
+/* ─── Navigation bar (always visible) ─────── */
+function renderNav() {
+  const nav = document.createElement('nav');
+  nav.className = 'options-nav';
+
+  const brand = document.createElement('span');
+  brand.className = 'options-nav-brand';
+  brand.textContent = 'ProfileFill';
+
+  const right = document.createElement('div');
+  right.className = 'options-nav-right';
+
+  const settingsBtn = document.createElement('button');
+  settingsBtn.className = 'options-nav-icon-btn';
+  settingsBtn.setAttribute('aria-label', 'Settings');
+  settingsBtn.title = 'Settings';
+  settingsBtn.textContent = '\u2699';
+  settingsBtn.addEventListener('click', () => openSettingsModal());
+
+  const themeBtn = document.createElement('button');
+  themeBtn.className = 'options-nav-theme-btn';
+  themeBtn.setAttribute('aria-label', 'Toggle theme');
+  themeBtn.textContent = getCurrentTheme() === 'dark' ? '\u2600' : '\u25CF';
+  themeBtn.addEventListener('click', () => {
+    toggleTheme();
+    themeBtn.textContent = getCurrentTheme() === 'dark' ? '\u2600' : '\u25CF';
+  });
+
+  const version = document.createElement('span');
+  version.className = 'options-nav-version';
+  version.textContent = 'v1.0.0';
+
+  right.appendChild(settingsBtn);
+  right.appendChild(themeBtn);
+  right.appendChild(version);
+  nav.appendChild(brand);
+  nav.appendChild(right);
+  return nav;
+}
+
+function createSeparator() {
+  const hr = document.createElement('hr');
+  hr.className = 'options-separator';
+  return hr;
+}
+
+/* ─── Settings modal ──────────────────────── */
+function openSettingsModal() {
+  closeSettingsModal();
+  state.settingsDirty = { ...(state.settings ?? getDefaultSettings()) };
+  state.testApiResult = null;
+
+  const s = state.settingsDirty;
   const provider = AI_PROVIDERS.find((p) => p.value === (s.aiProvider || 'openai')) || AI_PROVIDERS[0];
 
-  const card = document.createElement('div');
-  card.className = 'pf-card options-settings-card';
-  card.innerHTML = `
-    <div class="options-settings-header" id="settings-toggle">
-      <span class="options-settings-title">Settings</span>
-      <span class="options-settings-chevron">${open ? '▼' : '▶'}</span>
+  const overlay = document.createElement('div');
+  overlay.className = 'settings-overlay';
+  overlay.id = 'settings-modal-overlay';
+
+  const modal = document.createElement('div');
+  modal.className = 'settings-modal';
+
+  modal.innerHTML = `
+    <div class="settings-modal-header">
+      <span class="settings-modal-title">Settings</span>
+      <button class="settings-modal-close" id="settings-close-btn" aria-label="Close">&times;</button>
     </div>
-    <div class="options-settings-body" id="settings-body" style="display: ${open ? 'block' : 'none'}">
-      <label class="options-settings-row options-settings-toggle-row">
-        <span>Use AI for Resume Parsing</span>
-        <input type="checkbox" id="settings-ai-enabled" class="options-settings-checkbox" ${s.aiParsingEnabled ? 'checked' : ''} />
-      </label>
-      <div class="options-settings-ai-fields" id="settings-ai-fields" style="display: ${s.aiParsingEnabled ? 'block' : 'none'}">
-        <div class="options-settings-row">
-          <label class="options-field-label">AI Provider</label>
-          <select id="settings-ai-provider" class="pf-input options-settings-input">
+    <hr class="settings-modal-separator" />
+    <div class="settings-modal-body" id="settings-modal-body">
+      <div class="settings-toggle-row" id="settings-ai-toggle-row">
+        <div>
+          <div class="settings-toggle-label">Enable AI Resume Parsing</div>
+          <div class="settings-toggle-desc">Use an AI provider to parse resumes more accurately</div>
+        </div>
+        <div class="settings-toggle ${s.aiParsingEnabled ? 'on' : ''}" id="settings-ai-toggle">
+          <div class="settings-toggle-thumb"></div>
+        </div>
+      </div>
+      <div id="settings-ai-fields" style="display: ${s.aiParsingEnabled ? 'flex' : 'none'}; flex-direction: column; gap: var(--pf-spacing-md);">
+        <div class="settings-field">
+          <label class="settings-field-label">AI Provider</label>
+          <select id="settings-ai-provider" class="pf-input">
             ${AI_PROVIDERS.map((p) => `<option value="${escapeHtml(p.value)}" ${(s.aiProvider || '') === p.value ? 'selected' : ''}>${escapeHtml(p.label)}</option>`).join('')}
           </select>
         </div>
-        <div class="options-settings-row">
-          <label class="options-field-label">API Key</label>
-          <div class="options-settings-api-key-wrap">
-            <input type="password" id="settings-ai-apikey" class="pf-input options-settings-input" placeholder="Your API key" value="${escapeHtml(s.aiApiKey || '')}" autocomplete="off" />
-            <button type="button" class="options-settings-eye" id="settings-apikey-eye" aria-label="Show/hide API key">👁</button>
+        <div class="settings-field">
+          <label class="settings-field-label">API Key</label>
+          <div class="settings-key-wrapper">
+            <input type="password" id="settings-ai-apikey" class="pf-input" placeholder="Your API key" value="${escapeHtml(s.aiApiKey || '')}" autocomplete="off" />
+            <button type="button" class="settings-key-toggle" id="settings-apikey-eye" aria-label="Show/hide">\uD83D\uDC41</button>
           </div>
         </div>
-        <div class="options-settings-row">
-          <label class="options-field-label">Model (optional)</label>
-          <input type="text" id="settings-ai-model" class="pf-input options-settings-input" placeholder="${escapeHtml(provider.defaultModel)}" value="${escapeHtml(s.aiModel || '')}" />
+        <div class="settings-field">
+          <label class="settings-field-label">Custom Model (optional)</label>
+          <input type="text" id="settings-ai-model" class="pf-input" placeholder="${escapeHtml(provider.defaultModel)}" value="${escapeHtml(s.aiModel || '')}" />
         </div>
-        <label class="options-settings-row options-settings-toggle-row">
-          <span>Fall back to local parsing if AI fails</span>
-          <input type="checkbox" id="settings-local-fallback" class="options-settings-checkbox" ${s.localParsingFallback !== false ? 'checked' : ''} />
-        </label>
-        <div class="options-settings-row options-settings-test-row">
-          <button type="button" class="pf-button pf-button-ghost" id="settings-test-api-btn">Test API Key</button>
-          <span id="settings-test-result" class="options-settings-test-result ${state.testApiResult === 'ok' ? 'options-settings-test-ok' : state.testApiResult ? 'options-settings-test-fail' : ''}">${state.testApiResult === 'ok' ? '✓ OK' : state.testApiResult ? '✗ ' + escapeHtml(state.testApiResult) : ''}</span>
+        <div class="settings-toggle-row" id="settings-fallback-row">
+          <div>
+            <div class="settings-toggle-label">Fall back to local if AI fails</div>
+          </div>
+          <div class="settings-toggle ${s.localParsingFallback !== false ? 'on' : ''}" id="settings-fallback-toggle">
+            <div class="settings-toggle-thumb"></div>
+          </div>
+        </div>
+        <div class="settings-test-row">
+          <button type="button" class="pf-button pf-button-ghost" id="settings-test-btn">Test Connection</button>
+          <span id="settings-test-result" class="settings-test-result"></span>
         </div>
       </div>
-      <div class="options-settings-actions">
-        <button type="button" class="pf-button pf-button-primary" id="settings-save-btn">Save Settings</button>
-      </div>
-      <p class="options-settings-muted">Your API key is stored locally and only sent to your chosen AI provider.</p>
+    </div>
+    <p class="settings-muted">Your API key is stored locally and only sent to your chosen AI provider.</p>
+    <div class="settings-modal-footer">
+      <button type="button" class="pf-button pf-button-ghost" id="settings-cancel-btn">Cancel</button>
+      <button type="button" class="pf-button pf-button-primary" id="settings-save-btn">Save</button>
     </div>
   `;
 
-  card.querySelector('#settings-toggle').addEventListener('click', () => {
-    state.settingsOpen = !state.settingsOpen;
-    render();
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  // Close on backdrop click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeSettingsModal();
   });
 
-  card.querySelector('#settings-ai-enabled').addEventListener('change', (e) => {
-    state.settingsDirty = { ...state.settingsDirty, aiParsingEnabled: e.target.checked };
-    render();
+  // Close on escape
+  const onEscape = (e) => {
+    if (e.key === 'Escape') { closeSettingsModal(); document.removeEventListener('keydown', onEscape); }
+  };
+  document.addEventListener('keydown', onEscape);
+
+  // Close button
+  modal.querySelector('#settings-close-btn').addEventListener('click', closeSettingsModal);
+  modal.querySelector('#settings-cancel-btn').addEventListener('click', closeSettingsModal);
+
+  // AI toggle
+  modal.querySelector('#settings-ai-toggle').addEventListener('click', () => {
+    state.settingsDirty.aiParsingEnabled = !state.settingsDirty.aiParsingEnabled;
+    const toggle = modal.querySelector('#settings-ai-toggle');
+    const fields = modal.querySelector('#settings-ai-fields');
+    toggle.classList.toggle('on', state.settingsDirty.aiParsingEnabled);
+    fields.style.display = state.settingsDirty.aiParsingEnabled ? 'flex' : 'none';
   });
 
-  card.querySelector('#settings-ai-provider').addEventListener('change', (e) => {
-    state.settingsDirty = { ...state.settingsDirty, aiProvider: e.target.value };
-    render();
+  // Fallback toggle
+  modal.querySelector('#settings-fallback-toggle').addEventListener('click', () => {
+    state.settingsDirty.localParsingFallback = !state.settingsDirty.localParsingFallback;
+    modal.querySelector('#settings-fallback-toggle').classList.toggle('on', state.settingsDirty.localParsingFallback);
   });
 
-  card.querySelector('#settings-ai-apikey').addEventListener('input', (e) => {
-    state.settingsDirty = { ...state.settingsDirty, aiApiKey: e.target.value };
+  // Provider change updates model placeholder
+  modal.querySelector('#settings-ai-provider').addEventListener('change', (e) => {
+    state.settingsDirty.aiProvider = e.target.value;
+    const prov = AI_PROVIDERS.find((p) => p.value === e.target.value) || AI_PROVIDERS[0];
+    modal.querySelector('#settings-ai-model').placeholder = prov.defaultModel;
   });
 
-  card.querySelector('#settings-ai-model').addEventListener('input', (e) => {
-    state.settingsDirty = { ...state.settingsDirty, aiModel: e.target.value };
+  // Track inputs
+  modal.querySelector('#settings-ai-apikey').addEventListener('input', (e) => {
+    state.settingsDirty.aiApiKey = e.target.value;
+  });
+  modal.querySelector('#settings-ai-model').addEventListener('input', (e) => {
+    state.settingsDirty.aiModel = e.target.value;
   });
 
-  card.querySelector('#settings-local-fallback').addEventListener('change', (e) => {
-    state.settingsDirty = { ...state.settingsDirty, localParsingFallback: e.target.checked };
+  // Eye toggle
+  modal.querySelector('#settings-apikey-eye').addEventListener('click', () => {
+    const input = modal.querySelector('#settings-ai-apikey');
+    const btn = modal.querySelector('#settings-apikey-eye');
+    if (input.type === 'password') { input.type = 'text'; btn.textContent = '\uD83D\uDE48'; }
+    else { input.type = 'password'; btn.textContent = '\uD83D\uDC41'; }
   });
 
-  card.querySelector('#settings-apikey-eye').addEventListener('click', () => {
-    const input = card.querySelector('#settings-ai-apikey');
-    const btn = card.querySelector('#settings-apikey-eye');
-    if (input.type === 'password') {
-      input.type = 'text';
-      btn.textContent = '🙈';
-    } else {
-      input.type = 'password';
-      btn.textContent = '👁';
-    }
-  });
-
-  card.querySelector('#settings-test-api-btn').addEventListener('click', async () => {
-    const resultEl = card.querySelector('#settings-test-result');
-    resultEl.textContent = 'Testing…';
-    resultEl.className = 'options-settings-test-result';
-    const providerVal = card.querySelector('#settings-ai-provider').value;
-    const apiKey = card.querySelector('#settings-ai-apikey').value;
-    const model = card.querySelector('#settings-ai-model').value.trim();
-    const { ok, error } = await testApiKey(providerVal, apiKey, model || undefined);
+  // Test connection
+  modal.querySelector('#settings-test-btn').addEventListener('click', async () => {
+    const resultEl = modal.querySelector('#settings-test-result');
+    resultEl.textContent = 'Testing\u2026';
+    resultEl.className = 'settings-test-result';
+    const providerVal = modal.querySelector('#settings-ai-provider').value;
+    const apiKey = modal.querySelector('#settings-ai-apikey').value;
+    const modelVal = modal.querySelector('#settings-ai-model').value.trim();
+    const { ok, error } = await testApiKey(providerVal, apiKey, modelVal || undefined);
     state.testApiResult = ok ? 'ok' : error;
-    resultEl.textContent = ok ? '✓ OK' : `✗ ${error || 'Failed'}`;
-    resultEl.classList.add(ok ? 'options-settings-test-ok' : 'options-settings-test-fail');
+    resultEl.textContent = ok ? '\u2713 Connected' : `\u2717 ${error || 'Failed'}`;
+    resultEl.className = 'settings-test-result ' + (ok ? 'success' : 'error');
   });
 
-  card.querySelector('#settings-save-btn').addEventListener('click', async () => {
+  // Save
+  modal.querySelector('#settings-save-btn').addEventListener('click', async () => {
     const defaults = getDefaultSettings();
     const next = {
       ...defaults,
-      aiParsingEnabled: card.querySelector('#settings-ai-enabled').checked,
-      aiProvider: card.querySelector('#settings-ai-provider').value,
-      aiApiKey: card.querySelector('#settings-ai-apikey').value.trim(),
-      aiModel: card.querySelector('#settings-ai-model').value.trim(),
-      localParsingFallback: card.querySelector('#settings-local-fallback').checked,
+      aiParsingEnabled: state.settingsDirty.aiParsingEnabled,
+      aiProvider: modal.querySelector('#settings-ai-provider').value,
+      aiApiKey: modal.querySelector('#settings-ai-apikey').value.trim(),
+      aiModel: modal.querySelector('#settings-ai-model').value.trim(),
+      localParsingFallback: state.settingsDirty.localParsingFallback,
     };
     await persistSettings(next);
     state.settings = next;
     state.settingsDirty = { ...next };
+    closeSettingsModal();
     showToast('Settings saved');
-    render();
   });
-
-  return card;
 }
 
+function closeSettingsModal() {
+  const overlay = document.getElementById('settings-modal-overlay');
+  if (overlay) overlay.remove();
+}
+
+/* ─── Main render ─────────────────────────── */
 function render() {
   appEl.innerHTML = '';
+  appEl.className = '';
 
-  const root = document.createElement('div');
-  root.className = 'options-root';
+  appEl.appendChild(renderNav());
+
+  const content = document.createElement('div');
+  content.className = 'options-content';
 
   if (state.view === VIEW.LIST) {
-    root.appendChild(renderListView());
+    content.appendChild(renderListView());
   } else if (state.view === VIEW.EDITOR && state.editingProfile) {
-    root.appendChild(renderEditorView());
+    content.appendChild(renderEditorView());
   }
 
-  appEl.appendChild(root);
+  appEl.appendChild(content);
 }
 
 function renderListView() {
   const container = document.createElement('div');
 
-  const header = document.createElement('div');
-  header.className = 'options-header';
-  header.innerHTML = `
-    <div class="options-title-group">
-      <div class="options-title">Profiles</div>
-      <div class="options-subtitle">Create, edit, and manage ProfileFill profiles.</div>
-    </div>
-    <div class="options-header-actions">
-      <button class="pf-button pf-button-ghost" id="import-profile-btn">Import</button>
-      <button class="pf-button pf-button-ghost" id="export-all-btn">Export All</button>
-      <button class="pf-button pf-button-primary" id="new-profile-btn">+ New Profile</button>
-    </div>
-  `;
-  container.appendChild(header);
+  const title = document.createElement('h1');
+  title.className = 'options-page-title';
+  title.textContent = 'Profiles';
+  container.appendChild(title);
 
-  container.appendChild(renderSettingsCard());
+  container.appendChild(createSeparator());
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'options-toolbar';
+  const count = document.createElement('div');
+  count.className = 'options-toolbar-left';
+  count.textContent = `${state.profiles.length} profile${state.profiles.length !== 1 ? 's' : ''}`;
+  const actions = document.createElement('div');
+  actions.className = 'options-toolbar-right';
+  actions.innerHTML = `
+    <button class="pf-button pf-button-ghost" id="import-profile-btn">Import</button>
+    <button class="pf-button pf-button-ghost" id="export-all-btn">Export All</button>
+    <button class="pf-button pf-button-primary" id="new-profile-btn">+ New Profile</button>
+  `;
+  toolbar.appendChild(count);
+  toolbar.appendChild(actions);
+  container.appendChild(toolbar);
 
   const searchSort = document.createElement('div');
   searchSort.className = 'options-search-sort';
@@ -237,9 +336,6 @@ function renderListView() {
   `;
   container.appendChild(searchSort);
 
-  const grid = document.createElement('div');
-  grid.className = 'options-card-grid';
-
   let filtered = [...state.profiles];
   if (state.searchQuery.trim()) {
     const q = state.searchQuery.trim().toLowerCase();
@@ -258,18 +354,17 @@ function renderListView() {
     const empty = document.createElement('div');
     empty.className = 'options-empty-state';
     empty.innerHTML = `
-      <div class="options-empty-icon">
-        <div class="options-empty-icon-inner"></div>
-      </div>
+      <div class="options-empty-icon">+</div>
       <div class="options-empty-title">No profiles yet</div>
       <div class="options-empty-subtitle">Create your first profile by uploading a resume or starting from scratch.</div>
       <button class="pf-button pf-button-primary" id="empty-new-profile-btn">+ New Profile</button>
     `;
     container.appendChild(empty);
   } else {
+    const list = document.createElement('div');
     for (const profile of filtered) {
       const card = document.createElement('div');
-      card.className = 'pf-card options-profile-card';
+      card.className = 'options-profile-card';
       card.dataset.id = profile.id;
 
       const subtitleParts = [];
@@ -281,52 +376,32 @@ function renderListView() {
       if (profile.experience && profile.experience.length && profile.experience[0].title) {
         subtitleParts.push(profile.experience[0].title);
       }
-
-      const subtitle = subtitleParts.join(' • ');
+      const subtitle = subtitleParts.join(' \u2022 ');
 
       card.innerHTML = `
         <div class="options-profile-card-header">
           <div>
             <div class="options-profile-name">${escapeHtml(profile.name || 'Untitled profile')}</div>
-            ${
-              subtitle
-                ? `<div class="options-profile-subtitle">${escapeHtml(subtitle)}</div>`
-                : ''
-            }
+            ${subtitle ? `<div class="options-profile-subtitle">${escapeHtml(subtitle)}</div>` : ''}
           </div>
-          ${
-            profile.isDefault
-              ? '<span class="pf-badge">Default</span>'
-              : ''
-          }
+          ${profile.isDefault ? '<span class="pf-badge">Default</span>' : ''}
         </div>
         <div class="options-profile-meta">
           <div>Created ${formatDate(profile.createdAt)}</div>
           <div>Updated ${formatDate(profile.updatedAt)}</div>
         </div>
         <div class="options-profile-actions">
-          <button class="pf-button pf-button-ghost" data-action="set-default" data-id="${
-            profile.id
-          }">Set Default</button>
-          <button class="pf-button pf-button-ghost" data-action="duplicate" data-id="${
-            profile.id
-          }">Duplicate</button>
-          <button class="pf-button pf-button-ghost" data-action="export" data-id="${
-            profile.id
-          }">Export</button>
-          <button class="pf-button pf-button-danger" data-action="delete" data-id="${
-            profile.id
-          }">Delete</button>
+          <button class="pf-button pf-button-ghost" data-action="set-default" data-id="${profile.id}">Set Default</button>
+          <button class="pf-button pf-button-ghost" data-action="duplicate" data-id="${profile.id}">Duplicate</button>
+          <button class="pf-button pf-button-ghost" data-action="export" data-id="${profile.id}">Export</button>
+          <button class="pf-button pf-button-danger" data-action="delete" data-id="${profile.id}">Delete</button>
         </div>
       `;
-
-      grid.appendChild(card);
+      list.appendChild(card);
     }
-
-    container.appendChild(grid);
+    container.appendChild(list);
   }
 
-  // Wire events
   container.addEventListener('click', async (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
     if (!target) return;
@@ -410,7 +485,6 @@ function renderEditorView() {
   const container = document.createElement('div');
   container.className = 'options-editor';
 
-  // Header with profile name and default toggle
   const header = document.createElement('div');
   header.className = 'options-editor-header';
   header.innerHTML = `
@@ -425,10 +499,11 @@ function renderEditorView() {
       />
     </div>
     <div>
-      <button class="pf-button pf-button-ghost" id="back-to-list-btn">Profiles</button>
+      <button class="pf-button pf-button-ghost" id="back-to-list-btn">\u2190 Back to Profiles</button>
     </div>
   `;
   container.appendChild(header);
+  container.appendChild(createSeparator());
 
   // Personal Information
   const personalSection = document.createElement('section');
@@ -436,7 +511,7 @@ function renderEditorView() {
   personalSection.innerHTML = `
     <div class="pf-card">
       <div class="options-editor-card-header">
-        <div class="pf-section-title">Personal Information</div>
+        <div class="pf-label">Personal Information</div>
       </div>
       <div class="options-field-grid">
         ${renderLabeledInput('First Name', 'personal-firstName', profile.personal.firstName)}
@@ -492,8 +567,8 @@ function renderEditorView() {
   educationSection.innerHTML = `
     <div class="pf-card">
       <div class="options-editor-card-header">
-        <div class="pf-section-title">Education</div>
-        <button class="pf-button pf-button-ghost" id="add-education-btn">+ Add Education</button>
+        <div class="pf-label">Education</div>
+        <button class="pf-button pf-button-ghost" id="add-education-btn">+ Add</button>
       </div>
       <div id="education-list"></div>
     </div>
@@ -506,8 +581,8 @@ function renderEditorView() {
   experienceSection.innerHTML = `
     <div class="pf-card">
       <div class="options-editor-card-header">
-        <div class="pf-section-title">Experience</div>
-        <button class="pf-button pf-button-ghost" id="add-experience-btn">+ Add Experience</button>
+        <div class="pf-label">Experience</div>
+        <button class="pf-button pf-button-ghost" id="add-experience-btn">+ Add</button>
       </div>
       <div id="experience-list"></div>
     </div>
@@ -520,7 +595,7 @@ function renderEditorView() {
   skillsSection.innerHTML = `
     <div class="pf-card">
       <div class="options-editor-card-header">
-        <div class="pf-section-title">Skills</div>
+        <div class="pf-label">Skills</div>
       </div>
       <div class="options-row">
         <div class="options-field-label">Technical Skills</div>
@@ -547,8 +622,8 @@ function renderEditorView() {
   projectsSection.innerHTML = `
     <div class="pf-card">
       <div class="options-editor-card-header">
-        <div class="pf-section-title">Projects</div>
-        <button class="pf-button pf-button-ghost" id="add-project-btn">+ Add Project</button>
+        <div class="pf-label">Projects</div>
+        <button class="pf-button pf-button-ghost" id="add-project-btn">+ Add</button>
       </div>
       <div id="projects-list"></div>
     </div>
@@ -561,8 +636,8 @@ function renderEditorView() {
   certSection.innerHTML = `
     <div class="pf-card">
       <div class="options-editor-card-header">
-        <div class="pf-section-title">Certifications</div>
-        <button class="pf-button pf-button-ghost" id="add-cert-btn">+ Add Certification</button>
+        <div class="pf-label">Certifications</div>
+        <button class="pf-button pf-button-ghost" id="add-cert-btn">+ Add</button>
       </div>
       <div id="cert-list"></div>
     </div>
@@ -575,98 +650,51 @@ function renderEditorView() {
   appDefaultsSection.innerHTML = `
     <div class="pf-card">
       <div class="options-editor-card-header">
-        <div class="pf-section-title">Application Defaults</div>
+        <div class="pf-label">Application Defaults</div>
       </div>
       <div class="options-field-grid">
-        ${renderSelect(
-          'Visa Sponsorship',
-          'app-visaSponsorship',
-          profile.applicationDefaults.visaSponsorship,
-          [
-            { value: '', label: 'Select' },
-            { value: 'Yes', label: 'Yes' },
-            { value: 'No', label: 'No' },
-            { value: 'Prefer not to say', label: 'Prefer not to say' },
-          ]
-        )}
-        ${renderSelect(
-          'Work Authorization',
-          'app-workAuthorization',
-          profile.applicationDefaults.workAuthorization,
-          [
-            { value: '', label: 'Select' },
-            { value: 'Authorized', label: 'Authorized' },
-            { value: 'Need Sponsorship', label: 'Need Sponsorship' },
-            { value: 'Other', label: 'Other' },
-          ]
-        )}
-        ${renderLabeledInput(
-          'Expected Salary',
-          'app-expectedSalary',
-          profile.applicationDefaults.expectedSalary
-        )}
-        ${renderLabeledInput(
-          'Available Start Date',
-          'app-availableStartDate',
-          profile.applicationDefaults.availableStartDate,
-          'date'
-        )}
-        ${renderLabeledInput(
-          'Years of Experience',
-          'app-yearsOfExperience',
-          profile.applicationDefaults.yearsOfExperience
-        )}
-        ${renderSelect(
-          'Willing to Relocate',
-          'app-willingToRelocate',
-          profile.applicationDefaults.willingToRelocate,
-          [
-            { value: '', label: 'Select' },
-            { value: 'Yes', label: 'Yes' },
-            { value: 'No', label: 'No' },
-          ]
-        )}
-        ${renderSelect(
-          'Gender (optional)',
-          'app-gender',
-          profile.applicationDefaults.gender,
-          [
-            { value: '', label: 'Prefer not to say' },
-            { value: 'Female', label: 'Female' },
-            { value: 'Male', label: 'Male' },
-            { value: 'Non-binary', label: 'Non-binary' },
-            { value: 'Other', label: 'Other' },
-          ]
-        )}
-        ${renderLabeledInput(
-          'Ethnicity (optional)',
-          'app-ethnicity',
-          profile.applicationDefaults.ethnicity
-        )}
-        ${renderSelect(
-          'Veteran Status (optional)',
-          'app-veteranStatus',
-          profile.applicationDefaults.veteranStatus,
-          [
-            { value: '', label: 'Select' },
-            { value: 'I am not a veteran', label: 'I am not a veteran' },
-            { value: 'I am a protected veteran', label: 'I am a protected veteran' },
-            { value: 'Prefer not to say', label: 'Prefer not to say' },
-          ]
-        )}
-        ${renderSelect(
-          'Disability Status (optional)',
-          'app-disabilityStatus',
-          profile.applicationDefaults.disabilityStatus,
-          [
-            { value: '', label: 'Select' },
-            { value: 'No, I do not have a disability and have not had one in the past', label: 'No, I do not have a disability and have not had one in the past' },
-            { value: 'I do not have a disability', label: 'I do not have a disability' },
-            { value: 'I had a disability in the past', label: 'I had a disability in the past' },
-            { value: 'I have a disability', label: 'I have a disability' },
-            { value: 'Prefer not to say', label: 'Prefer not to say' },
-          ]
-        )}
+        ${renderSelect('Visa Sponsorship', 'app-visaSponsorship', profile.applicationDefaults.visaSponsorship, [
+          { value: '', label: 'Select' },
+          { value: 'Yes', label: 'Yes' },
+          { value: 'No', label: 'No' },
+          { value: 'Prefer not to say', label: 'Prefer not to say' },
+        ])}
+        ${renderSelect('Work Authorization', 'app-workAuthorization', profile.applicationDefaults.workAuthorization, [
+          { value: '', label: 'Select' },
+          { value: 'Authorized', label: 'Authorized' },
+          { value: 'Need Sponsorship', label: 'Need Sponsorship' },
+          { value: 'Other', label: 'Other' },
+        ])}
+        ${renderLabeledInput('Expected Salary', 'app-expectedSalary', profile.applicationDefaults.expectedSalary)}
+        ${renderLabeledInput('Available Start Date', 'app-availableStartDate', profile.applicationDefaults.availableStartDate, 'date')}
+        ${renderLabeledInput('Years of Experience', 'app-yearsOfExperience', profile.applicationDefaults.yearsOfExperience)}
+        ${renderSelect('Willing to Relocate', 'app-willingToRelocate', profile.applicationDefaults.willingToRelocate, [
+          { value: '', label: 'Select' },
+          { value: 'Yes', label: 'Yes' },
+          { value: 'No', label: 'No' },
+        ])}
+        ${renderSelect('Gender (optional)', 'app-gender', profile.applicationDefaults.gender, [
+          { value: '', label: 'Prefer not to say' },
+          { value: 'Female', label: 'Female' },
+          { value: 'Male', label: 'Male' },
+          { value: 'Non-binary', label: 'Non-binary' },
+          { value: 'Other', label: 'Other' },
+        ])}
+        ${renderLabeledInput('Ethnicity (optional)', 'app-ethnicity', profile.applicationDefaults.ethnicity)}
+        ${renderSelect('Veteran Status (optional)', 'app-veteranStatus', profile.applicationDefaults.veteranStatus, [
+          { value: '', label: 'Select' },
+          { value: 'I am not a veteran', label: 'I am not a veteran' },
+          { value: 'I am a protected veteran', label: 'I am a protected veteran' },
+          { value: 'Prefer not to say', label: 'Prefer not to say' },
+        ])}
+        ${renderSelect('Disability Status (optional)', 'app-disabilityStatus', profile.applicationDefaults.disabilityStatus, [
+          { value: '', label: 'Select' },
+          { value: 'No, I do not have a disability and have not had one in the past', label: 'No, I do not have a disability and have not had one in the past' },
+          { value: 'I do not have a disability', label: 'I do not have a disability' },
+          { value: 'I had a disability in the past', label: 'I had a disability in the past' },
+          { value: 'I have a disability', label: 'I have a disability' },
+          { value: 'Prefer not to say', label: 'Prefer not to say' },
+        ])}
         ${renderLabeledInput('Pronouns', 'app-pronouns', profile.applicationDefaults.pronouns)}
       </div>
     </div>
@@ -679,8 +707,8 @@ function renderEditorView() {
   customFieldsSection.innerHTML = `
     <div class="pf-card">
       <div class="options-editor-card-header">
-        <div class="pf-section-title">Custom Fields</div>
-        <button class="pf-button pf-button-ghost" id="add-custom-field-btn">+ Add Custom Field</button>
+        <div class="pf-label">Custom Fields</div>
+        <button class="pf-button pf-button-ghost" id="add-custom-field-btn">+ Add</button>
       </div>
       <div id="custom-fields-list"></div>
     </div>
@@ -693,8 +721,8 @@ function renderEditorView() {
   coverLettersSection.innerHTML = `
     <div class="pf-card">
       <div class="options-editor-card-header">
-        <div class="pf-section-title">Cover Letters</div>
-        <button class="pf-button pf-button-ghost" id="add-cover-letter-btn">+ Add Cover Letter</button>
+        <div class="pf-label">Cover Letters</div>
+        <button class="pf-button pf-button-ghost" id="add-cover-letter-btn">+ Add</button>
       </div>
       <div id="cover-letters-list"></div>
     </div>
@@ -707,7 +735,7 @@ function renderEditorView() {
   resumeSection.innerHTML = `
     <div class="pf-card">
       <div class="options-editor-card-header">
-        <div class="pf-section-title">Resume File</div>
+        <div class="pf-label">Resume File</div>
       </div>
       <div class="options-row">
         <div class="options-field-label">Current file</div>
@@ -727,7 +755,7 @@ function renderEditorView() {
   footer.className = 'options-sticky-footer';
   footer.innerHTML = `
     <div class="options-sticky-footer-inner">
-      <div class="pf-text-muted">Changes are saved locally in your browser. Nothing is uploaded.</div>
+      <div class="pf-text-muted">Changes saved locally</div>
       <div class="options-sticky-footer-actions">
         <button class="pf-button pf-button-ghost" id="cancel-edit-btn">Cancel</button>
         <button class="pf-button pf-button-primary" id="save-profile-btn">Save Profile</button>
@@ -735,7 +763,6 @@ function renderEditorView() {
     </div>
   `;
 
-  // Render dynamic lists
   setTimeout(() => {
     renderEducationList(profile.education);
     renderExperienceList(profile.experience);
@@ -744,11 +771,9 @@ function renderEditorView() {
     renderCertList(profile.certifications);
     renderCustomFieldsList(profile.customFields);
     renderCoverLettersList(profile.coverLetters);
-
     wireEditorEvents();
   }, 0);
 
-  // Wrap container and footer
   const wrapper = document.createElement('div');
   wrapper.appendChild(container);
   wrapper.appendChild(footer);
@@ -851,16 +876,12 @@ function renderExperienceList(experience) {
       </div>
       <div class="options-row">
         <label class="options-field-label" for="exp-current-${index}">
-          <input id="exp-current-${index}" type="checkbox" ${
-            exp.isCurrentRole ? 'checked' : ''
-          } /> Current Role
+          <input id="exp-current-${index}" type="checkbox" ${exp.isCurrentRole ? 'checked' : ''} /> Current Role
         </label>
       </div>
       <div class="options-row">
         <label class="options-field-label" for="exp-desc-${index}">Description</label>
-        <textarea id="exp-desc-${index}" class="pf-input" placeholder="Bullets or paragraph">${
-          exp.description || ''
-        }</textarea>
+        <textarea id="exp-desc-${index}" class="pf-input" placeholder="Bullets or paragraph">${exp.description || ''}</textarea>
       </div>
     `;
     listEl.appendChild(card);
@@ -960,15 +981,11 @@ function renderProjectsList(projects) {
       </div>
       <div class="options-row">
         <label class="options-field-label" for="proj-tech-${index}">Technologies (comma separated)</label>
-        <input id="proj-tech-${index}" class="pf-input" type="text" value="${escapeHtml(
-          (project.technologies || []).join(', ')
-        )}" />
+        <input id="proj-tech-${index}" class="pf-input" type="text" value="${escapeHtml((project.technologies || []).join(', '))}" />
       </div>
       <div class="options-row">
         <label class="options-field-label" for="proj-desc-${index}">Description</label>
-        <textarea id="proj-desc-${index}" class="pf-input">${
-          project.description || ''
-        }</textarea>
+        <textarea id="proj-desc-${index}" class="pf-input">${project.description || ''}</textarea>
       </div>
     `;
     listEl.appendChild(card);
@@ -1075,9 +1092,7 @@ function renderCoverLettersList(coverLetters) {
       </div>
       <div class="options-row">
         <label class="options-field-label" for="cl-content-${index}">Content</label>
-        <textarea id="cl-content-${index}" class="pf-input">${
-          cl.content || ''
-        }</textarea>
+        <textarea id="cl-content-${index}" class="pf-input">${cl.content || ''}</textarea>
       </div>
     `;
     listEl.appendChild(card);
@@ -1127,13 +1142,8 @@ function wireEditorEvents() {
   addEducationBtn?.addEventListener('click', () => {
     state.editingProfile.education.push({
       id: crypto.randomUUID(),
-      school: '',
-      degree: '',
-      field: '',
-      gpa: '',
-      startDate: '',
-      endDate: '',
-      location: '',
+      school: '', degree: '', field: '', gpa: '',
+      startDate: '', endDate: '', location: '',
     });
     renderEditorViewAgain();
   });
@@ -1142,13 +1152,8 @@ function wireEditorEvents() {
   addExperienceBtn?.addEventListener('click', () => {
     state.editingProfile.experience.push({
       id: crypto.randomUUID(),
-      company: '',
-      title: '',
-      location: '',
-      startDate: '',
-      endDate: '',
-      description: '',
-      isCurrentRole: false,
+      company: '', title: '', location: '',
+      startDate: '', endDate: '', description: '', isCurrentRole: false,
     });
     renderEditorViewAgain();
   });
@@ -1157,12 +1162,8 @@ function wireEditorEvents() {
   addProjectBtn?.addEventListener('click', () => {
     state.editingProfile.projects.push({
       id: crypto.randomUUID(),
-      name: '',
-      description: '',
-      technologies: [],
-      url: '',
-      startDate: '',
-      endDate: '',
+      name: '', description: '', technologies: [],
+      url: '', startDate: '', endDate: '',
     });
     renderEditorViewAgain();
   });
@@ -1171,10 +1172,7 @@ function wireEditorEvents() {
   addCertBtn?.addEventListener('click', () => {
     state.editingProfile.certifications.push({
       id: crypto.randomUUID(),
-      name: '',
-      issuer: '',
-      date: '',
-      url: '',
+      name: '', issuer: '', date: '', url: '',
     });
     renderEditorViewAgain();
   });
@@ -1183,8 +1181,7 @@ function wireEditorEvents() {
   addCustomFieldBtn?.addEventListener('click', () => {
     state.editingProfile.customFields.push({
       id: crypto.randomUUID(),
-      label: '',
-      value: '',
+      label: '', value: '',
     });
     renderEditorViewAgain();
   });
@@ -1193,8 +1190,7 @@ function wireEditorEvents() {
   addCoverLetterBtn?.addEventListener('click', () => {
     state.editingProfile.coverLetters.push({
       id: crypto.randomUUID(),
-      name: '',
-      content: '',
+      name: '', content: '',
     });
     renderEditorViewAgain();
   });
@@ -1214,12 +1210,8 @@ function collectProfileFromEditor() {
   const profile = { ...state.editingProfile };
 
   const nameInput = /** @type {HTMLInputElement} */ (document.getElementById('profile-name-input'));
-  const firstNameInput = /** @type {HTMLInputElement} */ (
-    document.getElementById('personal-firstName')
-  );
-  const lastNameInput = /** @type {HTMLInputElement} */ (
-    document.getElementById('personal-lastName')
-  );
+  const firstNameInput = /** @type {HTMLInputElement} */ (document.getElementById('personal-firstName'));
+  const lastNameInput = /** @type {HTMLInputElement} */ (document.getElementById('personal-lastName'));
   const emailInput = /** @type {HTMLInputElement} */ (document.getElementById('personal-email'));
 
   const firstName = firstNameInput?.value.trim() || '';
@@ -1234,9 +1226,7 @@ function collectProfileFromEditor() {
   profile.name = nameInput?.value.trim() || `${firstName} ${lastName}`;
 
   profile.personal = {
-    firstName,
-    lastName,
-    email,
+    firstName, lastName, email,
     countryCode: valueOf('personal-countryCode'),
     phone: valueOf('personal-phone'),
     phoneType: valueOf('personal-phoneType'),
@@ -1252,7 +1242,6 @@ function collectProfileFromEditor() {
     website: valueOf('personal-website'),
   };
 
-  // Education
   profile.education = profile.education.map((edu, index) => ({
     ...edu,
     school: valueOf(`edu-school-${index}`),
@@ -1264,7 +1253,6 @@ function collectProfileFromEditor() {
     location: valueOf(`edu-location-${index}`),
   }));
 
-  // Experience
   profile.experience = profile.experience.map((exp, index) => ({
     ...exp,
     company: valueOf(`exp-company-${index}`),
@@ -1276,18 +1264,11 @@ function collectProfileFromEditor() {
     description: valueOf(`exp-desc-${index}`, true),
   }));
 
-  // Skills already updated via tag UI
-
-  // Projects
   profile.projects = profile.projects.map((proj, index) => {
     const techRaw = valueOf(`proj-tech-${index}`);
     const technologies = techRaw
-      ? techRaw
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean)
+      ? techRaw.split(',').map((t) => t.trim()).filter(Boolean)
       : [];
-
     return {
       ...proj,
       name: valueOf(`proj-name-${index}`),
@@ -1299,7 +1280,6 @@ function collectProfileFromEditor() {
     };
   });
 
-  // Certifications
   profile.certifications = profile.certifications.map((cert, index) => ({
     ...cert,
     name: valueOf(`cert-name-${index}`),
@@ -1308,7 +1288,6 @@ function collectProfileFromEditor() {
     url: valueOf(`cert-url-${index}`),
   }));
 
-  // Application defaults
   profile.applicationDefaults = {
     visaSponsorship: valueOf('app-visaSponsorship'),
     workAuthorization: valueOf('app-workAuthorization'),
@@ -1323,14 +1302,12 @@ function collectProfileFromEditor() {
     pronouns: valueOf('app-pronouns'),
   };
 
-  // Custom fields
   profile.customFields = profile.customFields.map((field, index) => ({
     ...field,
     label: valueOf(`custom-label-${index}`),
     value: valueOf(`custom-value-${index}`),
   }));
 
-  // Cover letters
   profile.coverLetters = profile.coverLetters.map((cl, index) => ({
     ...cl,
     name: valueOf(`cl-name-${index}`),
@@ -1357,7 +1334,6 @@ function checkedOf(id) {
 
 function openEditor(profile) {
   state.view = VIEW.EDITOR;
-  // Deep clone to avoid mutating list until save
   state.editingProfile = JSON.parse(JSON.stringify(profile));
   render();
 }
@@ -1420,9 +1396,9 @@ function showToast(message) {
 }
 
 function formatDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return '\u2014';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return '\u2014';
   return d.toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
@@ -1447,44 +1423,23 @@ function createEmptyProfile() {
     updatedAt: now,
     isDefault: state.profiles.length === 0,
     personal: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      countryCode: '',
-      phone: '',
-      phoneType: '',
-      address: '',
-      city: '',
-      state: '',
-      location: '',
-      country: '',
-      pincode: '',
-      linkedIn: '',
-      github: '',
-      portfolio: '',
-      website: '',
+      firstName: '', lastName: '', email: '',
+      countryCode: '', phone: '', phoneType: '',
+      address: '', city: '', state: '', location: '',
+      country: '', pincode: '',
+      linkedIn: '', github: '', portfolio: '', website: '',
     },
     education: [],
     experience: [],
-    skills: {
-      technical: [],
-      languages: [],
-      tools: [],
-    },
+    skills: { technical: [], languages: [], tools: [] },
     projects: [],
     certifications: [],
     applicationDefaults: {
-      visaSponsorship: '',
-      workAuthorization: '',
-      expectedSalary: '',
-      availableStartDate: '',
-      yearsOfExperience: '',
-      willingToRelocate: '',
-      gender: '',
-      ethnicity: '',
-      veteranStatus: '',
-      disabilityStatus: '',
-      pronouns: '',
+      visaSponsorship: '', workAuthorization: '',
+      expectedSalary: '', availableStartDate: '',
+      yearsOfExperience: '', willingToRelocate: '',
+      gender: '', ethnicity: '', veteranStatus: '',
+      disabilityStatus: '', pronouns: '',
     },
     customFields: [],
     coverLetters: [],
@@ -1494,11 +1449,10 @@ function createEmptyProfile() {
 }
 
 function renderEditorViewAgain() {
-  // Re-render editor while keeping in editor view
-  const root = document.querySelector('.options-root');
-  if (!root) return;
-  root.innerHTML = '';
-  root.appendChild(renderEditorView());
+  const contentEl = document.querySelector('.options-content');
+  if (!contentEl) return;
+  contentEl.innerHTML = '';
+  contentEl.appendChild(renderEditorView());
 }
 
 async function fileToBase64(file) {
@@ -1511,4 +1465,3 @@ async function fileToBase64(file) {
   }
   return btoa(binary);
 }
-
