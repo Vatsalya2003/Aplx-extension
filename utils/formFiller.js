@@ -8,7 +8,7 @@
    * @param {{ attachResume?: boolean, attachCoverLetter?: boolean }} options
    * @returns {Promise<string>} summary
    */
-  var PHONE_KEYS = ['phone', 'phoneNumber', 'countryCode', 'countryPhoneCode', 'phoneType', 'phoneDeviceType'];
+  var PHONE_KEYS = ['phone', 'phoneNumber', 'countryCode', 'countryPhoneCode', 'phoneType', 'phoneDeviceType', 'phoneExtension'];
 
   async function fill(profile, options = {}) {
     const root = document;
@@ -415,66 +415,119 @@
     var countryCode = personal.countryCode || '+1';
     var phoneType = personal.phoneType || 'Mobile';
     if (!phone) return 0;
+
     var phoneNumberPatterns = {
-      labels: ['phone number', 'phone', 'telephone', 'mobile number', 'cell phone'],
-      names: ['phoneNumber', 'phone_number', 'phone', 'telephone', 'mobile'],
+      labels: ['phone number', 'phone', 'telephone', 'mobile number', 'cell phone', 'contact number'],
+      names: ['phoneNumber', 'phone_number', 'phone', 'telephone', 'mobile', 'contact_number'],
     };
+
     var firstPhoneInput = findFirstMatchingElement(
       'input[type="text"], input[type="tel"], input:not([type])',
       phoneNumberPatterns
     );
     if (!firstPhoneInput) return 0;
+
     var scope = findPhoneFieldsInSameGroup(firstPhoneInput);
+
+    // Widen scope for Workday-style layouts where phone fields span a larger container
+    if (scope) {
+      var parentScope = scope.parentElement;
+      for (var i = 0; i < 5; i++) {
+        if (!parentScope || parentScope === document.body) break;
+        var scopeText = ((parentScope.className || '') + ' ' + (parentScope.id || '') + ' ' + (parentScope.textContent || '').slice(0, 200)).toLowerCase();
+        if (scopeText.includes('phone')) {
+          scope = parentScope;
+          break;
+        }
+        parentScope = parentScope.parentElement;
+      }
+    }
+
     var filled = 0;
+
+    // === PHONE DEVICE TYPE ===
     var phoneTypePatterns = {
-      labels: ['phone device type', 'phone type', 'device type', 'type'],
-      names: ['phoneDeviceType', 'phone_device_type', 'phone_type', 'deviceType', 'phoneType'],
+      labels: [
+        'phone device type', 'phone type', 'device type',
+        'phone device', 'contact type', 'phone category',
+        'mobile type', 'telephone type',
+      ],
+      names: [
+        'phoneDeviceType', 'phone_device_type', 'phone_type', 'deviceType',
+        'phoneType', 'device_type', 'contact_type', 'phonedevicetype',
+      ],
     };
+
     var phoneTypeSelect = findFirstMatchingElementInScope(scope, 'select', phoneTypePatterns);
+    if (!phoneTypeSelect) {
+      phoneTypeSelect = findFirstMatchingElement('select', phoneTypePatterns);
+    }
+
     if (phoneTypeSelect) {
-      var preferredTypes = [phoneType, 'Mobile', 'Home', 'Work'];
+      var preferredTypes = [phoneType, 'Mobile', 'Cell', 'Home', 'Work'];
       var matched = false;
+
       for (var p = 0; p < preferredTypes.length; p++) {
-        var opt = Array.from(phoneTypeSelect.options).find(function (o) {
-          var text = (o.text || '').toLowerCase();
-          var val = (o.value || '').toLowerCase();
-          var pref = (preferredTypes[p] || '').toLowerCase();
-          return text.includes(pref) || val.includes(pref);
+        var options = Array.from(phoneTypeSelect.options);
+        var opt = options.find(function (o) {
+          var text = (o.text || o.textContent || '').toLowerCase().trim();
+          var val = (o.value || '').toLowerCase().trim();
+          var pref = (preferredTypes[p] || '').toLowerCase().trim();
+          return text === pref || val === pref ||
+                 text.includes(pref) || pref.includes(text) ||
+                 val.includes(pref) || pref.includes(val);
         });
-        if (opt && opt.value) {
+
+        if (opt && opt.value && opt.value.toLowerCase() !== 'select one' && opt.value !== '') {
           phoneTypeSelect.value = opt.value;
           dispatchInputEvents(phoneTypeSelect);
+          highlightSuccess(phoneTypeSelect);
           filled++;
           matched = true;
           break;
         }
       }
+
       if (!matched) {
         var firstValid = Array.from(phoneTypeSelect.options).find(function (o) {
-          return o.value;
+          var val = (o.value || '').toLowerCase().trim();
+          var text = (o.text || o.textContent || '').toLowerCase().trim();
+          return val !== '' && val !== 'select one' && text !== 'select one' && text !== '--';
         });
         if (firstValid) {
           phoneTypeSelect.value = firstValid.value;
           dispatchInputEvents(phoneTypeSelect);
+          highlightSuccess(phoneTypeSelect);
           filled++;
         }
       }
     }
+
+    // === COUNTRY PHONE CODE ===
     var countryCodePatterns = {
-      labels: ['country phone code', 'country code', 'phone code', 'dialing code'],
+      labels: ['country phone code', 'country code', 'phone code', 'dialing code', 'phone country'],
       names: ['countryPhoneCode', 'country_phone_code', 'country_code', 'dialingCode', 'phoneCountryCode'],
     };
     var ok = await fillSearchableDropdown(countryCodePatterns, countryCode, COUNTRY_CODE_DISPLAY_MAP, scope);
     if (ok) filled++;
+
+    // === PHONE NUMBER (digits only, no country code prefix) ===
     var cleanPhone = phone.replace(/[\s\-\(\)\.]/g, '');
-    if (countryCode && cleanPhone.indexOf(countryCode.replace('+', '')) === 0) {
-      cleanPhone = cleanPhone.slice(countryCode.replace('+', '').length);
+
+    if (countryCode) {
+      var codeDigits = countryCode.replace(/[^\d]/g, '');
+      if (codeDigits && cleanPhone.indexOf(codeDigits) === 0) {
+        cleanPhone = cleanPhone.slice(codeDigits.length);
+      }
     }
     if (cleanPhone.indexOf('+') === 0) {
       cleanPhone = cleanPhone.replace(/^\+\d{1,3}/, '');
     }
+
     setNativeValue(firstPhoneInput, cleanPhone);
+    highlightSuccess(firstPhoneInput);
     filled++;
+
     return filled;
   }
 
@@ -563,10 +616,13 @@
   }
 
   function dispatchInputEvents(el) {
-    ['input', 'change', 'blur'].forEach((type) => {
-      const ev = new Event(type, { bubbles: true });
-      el.dispatchEvent(ev);
-    });
+    try {
+      el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText' }));
+    } catch (e) {
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new Event('blur', { bubbles: true }));
   }
 
   function sleep(ms) {
@@ -576,15 +632,23 @@
   }
 
   function setNativeValue(element, value) {
-    const tag = element.tagName ? element.tagName.toLowerCase() : '';
-    const proto = tag === 'textarea' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
-    const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+    element.focus();
+    element.dispatchEvent(new Event('focus', { bubbles: true }));
+
+    var tag = element.tagName ? element.tagName.toLowerCase() : '';
+    var proto = tag === 'textarea' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+    var desc = Object.getOwnPropertyDescriptor(proto, 'value');
     if (desc && typeof desc.set === 'function') {
       desc.set.call(element, value);
     } else {
       element.value = value;
     }
-    element.dispatchEvent(new Event('input', { bubbles: true }));
+
+    try {
+      element.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText' }));
+    } catch (e) {
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+    }
     element.dispatchEvent(new Event('change', { bubbles: true }));
     element.dispatchEvent(new Event('blur', { bubbles: true }));
   }

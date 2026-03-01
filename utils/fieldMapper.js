@@ -49,6 +49,10 @@ const FIELD_PATTERNS = {
     labels: ['phone device type', 'phone type', 'device type'],
     names: ['phoneDeviceType', 'phone_device_type', 'phone_type', 'deviceType'],
   },
+  phoneExtension: {
+    labels: ['phone extension', 'extension', 'ext', 'ext.', 'phone ext'],
+    names: ['phoneExtension', 'phone_extension', 'extension', 'ext'],
+  },
   address: {
     labels: ['address', 'address line 1', 'street address', 'address 1', 'street', 'full address'],
     names: ['address', 'addressLine1', 'address_line_1', 'street', 'street_address', 'address1'],

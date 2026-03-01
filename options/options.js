@@ -1229,7 +1229,7 @@ function collectProfileFromEditor() {
     firstName, lastName, email,
     countryCode: valueOf('personal-countryCode'),
     phone: valueOf('personal-phone'),
-    phoneType: valueOf('personal-phoneType'),
+    phoneType: valueOf('personal-phoneType') || 'Mobile',
     address: valueOf('personal-address'),
     city: valueOf('personal-city'),
     state: valueOf('personal-state'),
